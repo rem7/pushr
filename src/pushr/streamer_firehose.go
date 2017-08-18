@@ -10,7 +10,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -104,7 +103,7 @@ LOOP:
 		if data != nil {
 
 			if len(data) > 1000000 {
-				fmt.Printf("Data recorded exceeded 1MB. skipping: \n--\n%s\n--", data)
+				log.Printf("Data recorded exceeded 1MB. skipping: \n--\n%s\n--", data)
 				continue
 			}
 

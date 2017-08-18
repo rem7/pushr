@@ -83,23 +83,29 @@ func MonitorFile(ctx context.Context, logfile Logfile) error {
 	}
 
 	fastForward := false
-	var parser Parser
-
 	if !logfile.LastTimestamp.IsZero() {
 		log.WithField("file", logfile.Filename).Warnf("Found cached time of last scan at %s", logfile.LastTimestamp)
 		fastForward = true
 	}
-	if logfile.ParseMode == "regex" {
+
+	var parser Parser
+	switch logfile.ParseMode {
+	case "regex":
 		parser = NewRegexParser(gApp, appVer(), logfile.Filename, gHostname, logfile.Regex, stream.RecordFormat())
-	} else if logfile.ParseMode == "json" {
+		break
+	case "json":
 		parser = NewJSONParser(gApp, appVer(), logfile.Filename, gHostname, logfile.FieldMappings, stream.RecordFormat())
-	} else if logfile.ParseMode == "csv" {
+		break
+	case "csv":
 		parser = NewCSVParser(gApp, appVer(), logfile.Filename, gHostname, logfile.FieldsOrder, stream.RecordFormat())
-	} else if logfile.ParseMode == "json_raw" {
+		break
+	case "json_raw":
 		parser = NewJSONRawParser(gApp, appVer(), logfile.Filename, gHostname, stream.RecordFormat())
-	} else if logfile.ParseMode == "date_keyvalue" {
+		break
+	case "date_keyvalue":
 		parser = NewDateKVParser(gApp, appVer(), logfile.Filename, gHostname, logfile.FieldMappings, stream.RecordFormat())
-	} else {
+		break
+	default:
 		log.WithField("file", logfile.Filename).Fatalf("%s parse_mode not supported", logfile.ParseMode)
 	}
 
