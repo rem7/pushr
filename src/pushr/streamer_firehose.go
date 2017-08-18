@@ -153,6 +153,7 @@ func (s *FirehoseStream) uploadRecords(data []*firehose.Record, failCount int) {
 	r, err := s.svc.PutRecordBatch(params)
 	if err != nil {
 		log.Error(err.Error())
+		s.wg.Add(1)
 		go s.uploadRecords(data, failCount+1)
 		return
 	}
@@ -167,6 +168,7 @@ func (s *FirehoseStream) uploadRecords(data []*firehose.Record, failCount int) {
 			}
 		}
 
+		s.wg.Add(1)
 		go s.uploadRecords(newData, failCount+1)
 	}
 
