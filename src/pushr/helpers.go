@@ -90,6 +90,7 @@ func monitorDir(ctx context.Context, path string) (chan string, chan string, err
 		}
 	}()
 
+	log.Printf("watcihng... %s", dirPath)
 	err = watcher.Add(dirPath)
 	if err != nil {
 		log.Fatal(err)

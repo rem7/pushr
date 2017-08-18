@@ -38,12 +38,10 @@ var (
 	gAppVer          string
 	gAppVerMutex     *sync.RWMutex
 	gUpdateCacheChan chan UpdateMessage
-	done             chan bool
 	gStateFilePath   = "/etc/pushr.state"
 	gTimeThreshold   time.Time
 	gAllStreams      = map[string]Streamer{}
 	gVerboseLevel    = 2
-	gCtx             context.Context
 
 	appVerRegex      = regexp.MustCompile(`^----\sapp_ver\:\s(?P<app_ver>.*)$`)
 	chromeVersion    = regexp.MustCompile(`Chrome\/([^ ;\)]*)`)
@@ -73,9 +71,7 @@ var (
 func init() {
 	log.SetFormatter(new(logger.CSVFormatter))
 	gUpdateCacheChan = make(chan UpdateMessage, 1028)
-	done = make(chan bool)
 	gAppVerMutex = new(sync.RWMutex)
-	handleSignal()
 }
 
 func MonitorFile(ctx context.Context, logfile Logfile) error {
@@ -170,10 +166,10 @@ LOOP:
 	return nil
 }
 
-func MonitorDir(logfile Logfile) error {
+func MonitorDir(ctx context.Context, logfile Logfile, files []string) error {
 
-	monitorDirCtx, monitorCancel := context.WithCancel(context.Background())
-	newFiles, removedFiles, err := monitorDir(monitorDirCtx, logfile.Filename)
+	monitorDirCtx, monitorCancel := context.WithCancel(ctx)
+	newFiles, removedFiles, err := monitorDir(monitorDirCtx, logfile.Directory)
 	if err != nil {
 		log.WithField("file", logfile.Filename).Errorf("Error monitoring: %s", err.Error())
 		return err
@@ -181,6 +177,14 @@ func MonitorDir(logfile Logfile) error {
 
 	wg := sync.WaitGroup{}
 	ctxs := make(map[string]context.CancelFunc)
+
+	if len(files) > 0 {
+		go func() {
+			for _, file := range files {
+				newFiles <- file
+			}
+		}()
+	}
 
 LOOP:
 	for {
@@ -209,6 +213,9 @@ LOOP:
 				cancel()
 			}
 			break
+		case <-ctx.Done():
+			log.WithField("file", logfile.Filename).Warnf("MonitorDir quitting.")
+			break LOOP
 		}
 	}
 

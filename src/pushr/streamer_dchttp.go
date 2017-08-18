@@ -33,6 +33,10 @@ type DCHTTPStream struct {
 	recordFormat []Attribute
 }
 
+func (s *DCHTTPStream) Close() {
+	log.Printf("DCHTTPStream Close not implemented")
+}
+
 func NewDCHTTPStream(recordFormat []Attribute, endpoint, apiKey string, sizeLimit int) *DCHTTPStream {
 
 	s := &DCHTTPStream{}

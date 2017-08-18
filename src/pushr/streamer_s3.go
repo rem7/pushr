@@ -33,6 +33,10 @@ type S3Stream struct {
 	recordFormat []Attribute
 }
 
+func (s *S3Stream) Close() {
+	log.Printf("S3Stream Close not implemented")
+}
+
 func NewS3Stream(recordFormat []Attribute, accessKey, secretAccessKey, awsRegion,
 	bucket, prefix string, sizeLimit int,
 	interval time.Duration) *S3Stream {

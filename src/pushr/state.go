@@ -76,10 +76,7 @@ func loadStateFile(path string) map[string]Logfile {
 	return state
 }
 
-func handleSignal() {
-	var cancel context.CancelFunc
-	gCtx, cancel = context.WithCancel(context.Background())
-
+func handleSignal(cancel context.CancelFunc) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt,
 		syscall.SIGHUP,
@@ -99,7 +96,7 @@ type UpdateMessage struct {
 	LastEventTimestamp time.Time
 }
 
-func updateStateFileInterval() {
+func updateStateFileInterval(ctx context.Context) {
 
 	t := time.NewTicker(time.Second * 5)
 
@@ -120,7 +117,7 @@ LOOP:
 			if len(logfilesMap) > 0 {
 				saveStateFile(logfilesMap)
 			}
-		case <-done:
+		case <-ctx.Done():
 			break LOOP
 		}
 	}

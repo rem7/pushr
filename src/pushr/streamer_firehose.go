@@ -9,6 +9,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"github.com/aws/aws-sdk-go/aws"
@@ -16,6 +17,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/firehose"
 	"math"
+	"sync"
 	"time"
 )
 
@@ -30,9 +32,11 @@ type FirehoseStream struct {
 	dataChan     chan []byte
 	interval     time.Duration
 	recordFormat []Attribute
+	ctx          context.Context
+	wg           sync.WaitGroup
 }
 
-func NewFirehoseStream(recordFormat []Attribute, accessKey, secretAccessKey, awsRegion, streamName string) *FirehoseStream {
+func NewFirehoseStream(ctx context.Context, recordFormat []Attribute, accessKey, secretAccessKey, awsRegion, streamName string) *FirehoseStream {
 
 	s := &FirehoseStream{}
 	sess := &session.Session{}
@@ -56,6 +60,7 @@ func NewFirehoseStream(recordFormat []Attribute, accessKey, secretAccessKey, aws
 	s.dataChan = make(chan []byte, BATCH_LIMIT*5)
 	s.interval = 5 * time.Second
 	s.recordFormat = recordFormat
+	s.ctx = ctx
 
 	go s.intervalStreamer()
 
@@ -67,12 +72,17 @@ func (s *FirehoseStream) Stream(r *Record) error {
 	return nil
 }
 
+func (s *FirehoseStream) Close() {
+	s.wg.Wait()
+}
+
 func (s *FirehoseStream) intervalStreamer() {
 
 	accum := []*firehose.Record{}
 	sizeAccumulator := 0
 	timer := time.NewTicker(s.interval)
-
+	exit := false
+LOOP:
 	for {
 
 		data := []byte{}
@@ -84,10 +94,11 @@ func (s *FirehoseStream) intervalStreamer() {
 		case <-timer.C:
 			flush = true
 			data = nil
-		case <-gCtx.Done():
+		case <-s.ctx.Done():
 			flush = true
 			data = nil
 			log.Printf("context done. Force Flush")
+			exit = true
 		}
 
 		if data != nil {
@@ -109,6 +120,7 @@ func (s *FirehoseStream) intervalStreamer() {
 			dataCopy := make([]*firehose.Record, len(accum))
 			copy(dataCopy, accum)
 
+			s.wg.Add(1)
 			go s.uploadRecords(dataCopy, 0)
 
 			accum = []*firehose.Record{}
@@ -116,10 +128,16 @@ func (s *FirehoseStream) intervalStreamer() {
 
 		}
 
+		if exit {
+			break LOOP
+		}
+
 	}
 }
 
 func (s *FirehoseStream) uploadRecords(data []*firehose.Record, failCount int) {
+
+	defer s.wg.Done()
 
 	var sleepTime = time.Duration(math.Min(60.0, float64(5*failCount))) * time.Second
 	if sleepTime > time.Duration(0) {

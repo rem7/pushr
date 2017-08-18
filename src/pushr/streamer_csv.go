@@ -9,6 +9,7 @@
 package main
 
 import (
+	log "github.com/Sirupsen/logrus"
 	"os"
 	"sync"
 )
@@ -36,6 +37,10 @@ func NewCSVStream(recordFormat []Attribute, file string) *CSVStream {
 
 	return s
 
+}
+
+func (s *CSVStream) Close() {
+	log.Printf("CSVStream Close not implemented")
 }
 
 func (s *CSVStream) Stream(data *Record) error {

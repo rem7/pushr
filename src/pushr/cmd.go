@@ -122,6 +122,9 @@ func main() {
 
 func start(configPath string) {
 
+	ctx, cancel := context.WithCancel(context.Background())
+	handleSignal(cancel)
+
 	configFile, err := os.Open(configPath)
 	if err != nil {
 		log.WithField("file", configPath).Fatalf(err.Error())
@@ -138,7 +141,7 @@ func start(configPath string) {
 		switch {
 		case conf.Type == "firehose":
 			log.Warn("stream_type: firehose")
-			stream = NewFirehoseStream(conf.RecordFormat, config.AwsAccessKey,
+			stream = NewFirehoseStream(ctx, conf.RecordFormat, config.AwsAccessKey,
 				config.AwsSecretAccessKey, config.AwsRegion, conf.Name)
 		case conf.Type == "csv":
 			filename := conf.Name + ".csv"
@@ -162,44 +165,49 @@ func start(configPath string) {
 	// 	config.AwsSecretAccessKey, config.AwsRegion,
 	// 	"dc-firehose-logs", "s3_test", 1024, time.Second*60)
 	lastState := loadStateFile(gStateFilePath)
+	wg := sync.WaitGroup{}
 
 	allFiles := []Logfile{}
 	for _, logfile := range config.Logfiles {
 
-		if _, err := os.Stat(logfile.Filename); !os.IsNotExist(err) {
-			// file exists, add it
-			allFiles = append(allFiles, logfile)
-		} else {
-			// directory, monitor it
-			stopCh := make(chan bool)
-			gStopChans = append(gStopChans, stopCh)
-			wildcard := logfile.Filename
-			go MonitorDir(logfile)
-			logfile.Filename = filepath.Dir(logfile.Filename)
+		if logfile.Directory != "" {
+
+			// since we will have a monitor, just send the strings
+			// to the monitor
+			// logfile.Filename = filepath.Dir(logfile.Filename)
+
+			wildcard := logfile.Directory
+			var files []string
 
 			// list all files
-			matches, err := filepath.Glob(wildcard)
+			matches, err := filepath.Glob(logfile.Directory)
 			if err != nil {
 				log.Fatal(err.Error())
 			}
 			for _, m := range matches {
-
 				if isDir, err := IsDir(m); err == nil && !isDir {
-					// append all files
-					logfile.Filename = m
-					allFiles = append(allFiles, logfile)
+					files = append(files, m)
 				}
 
 			}
 
+			// directory, monitor it
+			logfile.Filename = wildcard
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				MonitorDir(ctx, logfile, files)
+			}()
+		} else {
+			allFiles = append(allFiles, logfile)
 		}
+
 	}
 
 	for i := 0; i < len(allFiles); i++ {
 		log.Printf("%+v", allFiles[i].Filename)
 	}
 
-	wg := sync.WaitGroup{}
 	for _, logfile := range allFiles {
 
 		if savedState, ok := lastState[logfile.Filename]; ok {
@@ -207,10 +215,7 @@ func start(configPath string) {
 		}
 
 		wg.Add(1)
-		_stopCh := make(chan bool)
-		gStopChans = append(gStopChans, _stopCh)
-
-		go func(l Logfile, stopCh chan bool) {
+		go func(l Logfile) {
 
 			defer func() {
 				wg.Done()
@@ -222,12 +227,16 @@ func start(configPath string) {
 				log.WithField("file", l.Filename).Errorf("Error pushing file %v", l.Filename)
 			}
 
-		}(logfile, _stopCh)
+		}(logfile)
 
 	}
 
-	go updateStateFileInterval()
+	go updateStateFileInterval(ctx)
 	wg.Wait()
-	done <- true
+	cancel()
 
+	for streamName, stream := range gAllStreams {
+		log.WithField("file", streamName).Infof("Waiting for stream %v", streamName)
+		stream.Close()
+	}
 }

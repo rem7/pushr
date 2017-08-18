@@ -18,6 +18,7 @@ import (
 type Streamer interface {
 	Stream(*Record) error
 	RecordFormat() []Attribute
+	Close()
 }
 
 type Record struct {

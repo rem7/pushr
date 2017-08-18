@@ -67,12 +67,10 @@ grant select on table app_log to foo_firehose;
 
 Firehose Options:
 ```
-GZIP CSV TRUNCATECOLUMNS NULL AS '\\N' TIMEFORMAT 'auto' ACCEPTINVCHARS;
+GZIP CSV TRUNCATECOLUMNS NULL AS '\\N' TIMEFORMAT 'auto';
 
 app,app_ver,ingest_datetime,event_datetime,hostname,filename,log_level,device_tag,user_tag,remote_address,response_bytes,response_ms,device_type,os,os_ver,browser,browser_ver,country,language,log_line
 ```
-
-Everything should be already in utf-8 but I like to set ACCEPTINVCHARS just in case. Null characters are removed.
 
 
 Nginx access.log with optional response time in seconds at the end
