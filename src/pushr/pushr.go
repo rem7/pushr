@@ -201,11 +201,11 @@ LOOP:
 			break LOOP
 		case newFile := <-newFiles:
 			logfile.Filename = newFile
+			ctx, cancel := context.WithCancel(monitorDirCtx)
+			ctxs[logfile.Filename] = cancel
 			wg.Add(1)
 			go func(l Logfile) {
 				log.WithField("file", l.Filename).Warnf("Pushing to Firehose %v", l.StreamName)
-				ctx, cancel := context.WithCancel(monitorDirCtx)
-				ctxs[l.Filename] = cancel
 				err := MonitorFile(ctx, l)
 				if err != nil {
 					log.WithField("file", l.Filename).Errorf("Error pushing file %v", l.Filename)
