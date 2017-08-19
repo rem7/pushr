@@ -42,7 +42,7 @@ var (
 	gStateFilePath   = "/etc/pushr.state"
 	gTimeThreshold   time.Time
 	gAllStreams      = map[string]Streamer{}
-	gVerboseLevel    = 2
+	gVerboseLevel    = 3
 
 	appVerRegex      = regexp.MustCompile(`^----\sapp_ver\:\s(?P<app_ver>.*)$`)
 	chromeVersion    = regexp.MustCompile(`Chrome\/([^ ;\)]*)`)
@@ -79,7 +79,7 @@ func MonitorFile(ctx context.Context, logfile Logfile) error {
 
 	infof, warnf, errorf, fatalf := LogFuncs(logfile)
 
-	infof("monitoring")
+	infof("monitoring start")
 
 	stream, ok := gAllStreams[logfile.StreamName]
 	if !ok {
@@ -117,6 +117,7 @@ func MonitorFile(ctx context.Context, logfile Logfile) error {
 	t := tail.NewTailWithCtx(ctx, logfile.Filename, gFollow, logfile.RetryFileOpen)
 	stringBuffer := bytes.NewBufferString("")
 	flushTimer := time.NewTicker(time.Second * 30)
+	var streamed_lines_ctr uint64 = 0
 
 LOOP:
 	for {
@@ -168,10 +169,11 @@ LOOP:
 			if err != nil {
 				errorf("error streaming:\n%s", err.Error())
 			}
+			streamed_lines_ctr += 1
 		}
 	}
 
-	infof("reached end of file")
+	infof("monitoring stop. streamed %d lines", streamed_lines_ctr)
 
 	return nil
 }

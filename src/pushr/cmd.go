@@ -185,10 +185,6 @@ func start(configPath string) {
 
 	}
 
-	for i := 0; i < len(allFiles); i++ {
-		log.Infof("%+v", allFiles[i].Filename)
-	}
-
 	for _, logfile := range allFiles {
 
 		if savedState, ok := lastState[logfile.Filename]; ok {
@@ -222,16 +218,16 @@ func configureStreams(ctx context.Context, config ConfigFile) map[string]Streame
 		var stream Streamer
 		switch {
 		case conf.Type == "firehose":
-			log.Warn("stream_type: firehose")
+			log.WithField("stream", streamName).Info("streaming to firehose: %s", conf.Name)
 			stream = NewFirehoseStream(ctx, conf.RecordFormat, config.AwsAccessKey,
 				config.AwsSecretAccessKey, config.AwsRegion, conf.Name)
 		case conf.Type == "csv":
 			filename := conf.Name + ".csv"
-			log.WithField("file", filename).Warn("Streaming to csv")
+			log.WithField("stream", streamName).Infof("streaming to csv %s", filename)
 			stream = NewCSVStream(conf.RecordFormat, filename)
 			break
 		case conf.Type == "http":
-			log.Warn("stream_type: http")
+			log.WithField("stream", streamName).Info("streaming to http")
 			stream = NewDCHTTPStream(conf.RecordFormat, conf.Url, conf.StreamApiKey, 125000)
 			break
 		default:
