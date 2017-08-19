@@ -74,8 +74,7 @@ func monitorDir(ctx context.Context, path string) (chan string, chan string, err
 						newFiles <- event.Name
 					}
 					break
-				case fsnotify.Remove:
-				case fsnotify.Rename:
+				case fsnotify.Remove, fsnotify.Rename:
 					if strings.Index(event.Name, ext) > 0 {
 						removedFiles <- event.Name
 					}

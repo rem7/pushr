@@ -95,6 +95,12 @@
 			"branch": "master"
 		},
 		{
+			"importpath": "github.com/pkg/profile",
+			"repository": "https://github.com/pkg/profile",
+			"revision": "5b67d428864e92711fcbd2f8629456121a56d91f",
+			"branch": "master"
+		},
+		{
 			"importpath": "golang.org/x/sys/unix",
 			"repository": "https://go.googlesource.com/sys",
 			"revision": "b776ec39b3e54652e09028aaaaac9757f4f8211a",

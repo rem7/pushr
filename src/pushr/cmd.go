@@ -10,6 +10,7 @@ package main
 
 import (
 	"context"
+	// "github.com/pkg/profile"
 	"os"
 	"path/filepath"
 	"sync"
@@ -20,6 +21,8 @@ import (
 )
 
 func main() {
+
+	// defer profile.Start(profile.CPUProfile).Stop()
 
 	var configPath string
 
