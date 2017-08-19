@@ -86,8 +86,6 @@ func monitorDir(ctx context.Context, path string) (chan string, chan string, err
 	dirPath, ext_wildcard := filepath.Split(path)
 	ext := filepath.Ext(ext_wildcard)
 
-	log.Printf("Scanning dir: %s", path)
-
 	newFiles := make(chan string)
 	removedFiles := make(chan string)
 	go func() {
@@ -121,7 +119,6 @@ func monitorDir(ctx context.Context, path string) (chan string, chan string, err
 		}
 	}()
 
-	log.Printf("watcihng... %s", dirPath)
 	err = watcher.Add(dirPath)
 	if err != nil {
 		log.Fatal(err)

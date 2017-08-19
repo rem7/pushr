@@ -181,6 +181,7 @@ LOOP:
 func MonitorDir(ctx context.Context, logfile Logfile, files []string) error {
 
 	infof, _, errorf, _ := LogFuncs(logfile)
+	infof("monitoring dir start")
 
 	monitorDirCtx, monitorCancel := context.WithCancel(ctx)
 	newFiles, removedFiles, err := monitorDir(monitorDirCtx, logfile.Directory)
@@ -213,17 +214,15 @@ LOOP:
 			ctxs[logfile.Filename] = cancel
 			wg.Add(1)
 			go func(l Logfile) {
-				infof("Pushing to Firehose %v", l.StreamName)
-				err := MonitorFile(ctx, l)
-				if err != nil {
-					errorf("Error pushing file %v", l.Filename)
-				}
+				MonitorFile(ctx, l)
 				wg.Done()
 			}(logfile)
 			break
 		case removedFile := <-removedFiles:
-			infof("Removed from filesystem. (finished)")
 			if cancel, ok := ctxs[removedFile]; ok {
+				log.WithField("file", removedFile).
+					WithField("stream", logfile.StreamName).
+					Info("removed from filesystem.")
 				cancel()
 			}
 			break
