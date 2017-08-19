@@ -22,6 +22,38 @@ import (
 	"time"
 )
 
+func LogFuncs(logfile Logfile) (func(msg string, args ...interface{}),
+	func(msg string, args ...interface{}),
+	func(msg string, args ...interface{}),
+	func(msg string, args ...interface{})) {
+
+	infof := func(msg string, args ...interface{}) {
+		log.WithField("file", logfile.Filename).
+			WithField("stream", logfile.StreamName).
+			Infof(msg, args...)
+	}
+
+	warnf := func(msg string, args ...interface{}) {
+		log.WithField("file", logfile.Filename).
+			WithField("stream", logfile.StreamName).
+			Warnf(msg, args...)
+	}
+
+	errorf := func(msg string, args ...interface{}) {
+		log.WithField("file", logfile.Filename).
+			WithField("stream", logfile.StreamName).
+			Errorf(msg, args...)
+	}
+
+	fatalf := func(msg string, args ...interface{}) {
+		log.WithField("file", logfile.Filename).
+			WithField("stream", logfile.StreamName).
+			Fatalf(msg, args...)
+	}
+
+	return infof, warnf, errorf, fatalf
+}
+
 func regexGet(str string, r *regexp.Regexp) string {
 
 	matches := r.FindStringSubmatch(str)

@@ -135,33 +135,7 @@ func start(configPath string) {
 
 	config := parseConfig(configFile)
 	gHostname = config.Hostname
-	gAllStreams = make(map[string]Streamer)
-
-	// create all streamers from the config
-	for streamName, conf := range config.StreamConfigs {
-
-		var stream Streamer
-		switch {
-		case conf.Type == "firehose":
-			log.Warn("stream_type: firehose")
-			stream = NewFirehoseStream(ctx, conf.RecordFormat, config.AwsAccessKey,
-				config.AwsSecretAccessKey, config.AwsRegion, conf.Name)
-		case conf.Type == "csv":
-			filename := conf.Name + ".csv"
-			log.WithField("file", filename).Warn("Streaming to csv")
-			stream = NewCSVStream(conf.RecordFormat, filename)
-			break
-		case conf.Type == "http":
-			log.Warn("stream_type: http")
-			stream = NewDCHTTPStream(conf.RecordFormat, conf.Url, conf.StreamApiKey, 125000)
-			break
-		default:
-			log.Fatalf("stream type: %s not supported", conf.Type)
-		}
-
-		gAllStreams[streamName] = stream
-
-	}
+	gAllStreams = configureStreams(ctx, config)
 
 	// TODO: Handle different type of streams correctly
 	// stream = NewS3Stream(config.AwsAccessKey,
@@ -175,10 +149,7 @@ func start(configPath string) {
 
 		if logfile.Directory != "" {
 
-			// since we will have a monitor, just send the strings
-			// to the monitor
-			// logfile.Filename = filepath.Dir(logfile.Filename)
-
+			// since we will have a monitor, just send the strings to the monitor
 			wildcard := logfile.Directory
 			var files []string
 
@@ -242,4 +213,37 @@ func start(configPath string) {
 		log.WithField("file", streamName).Infof("Waiting for stream %v", streamName)
 		stream.Close()
 	}
+}
+
+func configureStreams(ctx context.Context, config ConfigFile) map[string]Streamer {
+
+	allStreams := make(map[string]Streamer)
+
+	// create all streamers from the config
+	for streamName, conf := range config.StreamConfigs {
+
+		var stream Streamer
+		switch {
+		case conf.Type == "firehose":
+			log.Warn("stream_type: firehose")
+			stream = NewFirehoseStream(ctx, conf.RecordFormat, config.AwsAccessKey,
+				config.AwsSecretAccessKey, config.AwsRegion, conf.Name)
+		case conf.Type == "csv":
+			filename := conf.Name + ".csv"
+			log.WithField("file", filename).Warn("Streaming to csv")
+			stream = NewCSVStream(conf.RecordFormat, filename)
+			break
+		case conf.Type == "http":
+			log.Warn("stream_type: http")
+			stream = NewDCHTTPStream(conf.RecordFormat, conf.Url, conf.StreamApiKey, 125000)
+			break
+		default:
+			log.Fatalf("stream type: %s not supported", conf.Type)
+		}
+
+		allStreams[streamName] = stream
+
+	}
+
+	return allStreams
 }

@@ -76,6 +76,8 @@ func init() {
 
 func MonitorFile(ctx context.Context, logfile Logfile) error {
 
+	infof, warnf, errorf, fatalf := LogFuncs(logfile)
+
 	stream, ok := gAllStreams[logfile.StreamName]
 	if !ok {
 		errStr := fmt.Sprintf("Stream %s not found to fail file %s", logfile.StreamName, logfile.Filename)
@@ -84,7 +86,7 @@ func MonitorFile(ctx context.Context, logfile Logfile) error {
 
 	fastForward := false
 	if !logfile.LastTimestamp.IsZero() {
-		log.WithField("file", logfile.Filename).Warnf("Found cached time of last scan at %s", logfile.LastTimestamp)
+		warnf("Found cached time of last scan at %s", logfile.LastTimestamp)
 		fastForward = true
 	}
 
@@ -106,7 +108,7 @@ func MonitorFile(ctx context.Context, logfile Logfile) error {
 		parser = NewDateKVParser(gApp, appVer(), logfile.Filename, gHostname, logfile.FieldMappings, stream.RecordFormat())
 		break
 	default:
-		log.WithField("file", logfile.Filename).Fatalf("%s parse_mode not supported", logfile.ParseMode)
+		fatalf("%s parse_mode not supported", logfile.ParseMode)
 	}
 
 	t := tail.NewTailWithCtx(ctx, logfile.Filename, gFollow, logfile.RetryFileOpen)
@@ -119,7 +121,7 @@ LOOP:
 		select {
 		case <-flushTimer.C:
 			if stringBuffer.Len() > 0 {
-				log.Printf("flushing...")
+				infof("flushing...")
 				flush(stringBuffer.String(), parser, stream)
 				stringBuffer.Reset()
 			}
@@ -162,22 +164,24 @@ LOOP:
 
 			err := stream.Stream(record)
 			if err != nil {
-				log.WithField("file", logfile.Filename).Errorf("Error streaming:\n%s", err.Error())
+				errorf("Error streaming:\n%s", err.Error())
 			}
 		}
 	}
 
-	log.WithField("file", logfile.Filename).Infof("Reached EOF. follow=%v", gFollow)
+	infof("Reached EOF. follow=%v", gFollow)
 
 	return nil
 }
 
 func MonitorDir(ctx context.Context, logfile Logfile, files []string) error {
 
+	infof, _, errorf, _ := LogFuncs(logfile)
+
 	monitorDirCtx, monitorCancel := context.WithCancel(ctx)
 	newFiles, removedFiles, err := monitorDir(monitorDirCtx, logfile.Directory)
 	if err != nil {
-		log.WithField("file", logfile.Filename).Errorf("Error monitoring: %s", err.Error())
+		errorf("Error monitoring: %s", err.Error())
 		return err
 	}
 
@@ -196,7 +200,7 @@ LOOP:
 	for {
 		select {
 		case <-monitorDirCtx.Done():
-			log.WithField("file", logfile.Filename).Warnf("Stopped monitoring directory")
+			infof("Stopped monitoring directory")
 			monitorCancel()
 			break LOOP
 		case newFile := <-newFiles:
@@ -205,22 +209,22 @@ LOOP:
 			ctxs[logfile.Filename] = cancel
 			wg.Add(1)
 			go func(l Logfile) {
-				log.WithField("file", l.Filename).Warnf("Pushing to Firehose %v", l.StreamName)
+				infof("Pushing to Firehose %v", l.StreamName)
 				err := MonitorFile(ctx, l)
 				if err != nil {
-					log.WithField("file", l.Filename).Errorf("Error pushing file %v", l.Filename)
+					errorf("Error pushing file %v", l.Filename)
 				}
 				wg.Done()
 			}(logfile)
 			break
 		case removedFile := <-removedFiles:
-			log.WithField("file", removedFile).Warnf("Removed from filesystem. (finished)")
+			infof("Removed from filesystem. (finished)")
 			if cancel, ok := ctxs[removedFile]; ok {
 				cancel()
 			}
 			break
 		case <-ctx.Done():
-			log.WithField("file", logfile.Filename).Warnf("MonitorDir quitting.")
+			infof("Context Stopped triggered. Stopped monitoring directory")
 			break LOOP
 		}
 	}
@@ -241,18 +245,19 @@ func flush(data string, parser Parser, stream Streamer) error {
 
 func processLine(logfile Logfile, parser Parser, line string, recordFormat []Attribute) (*Record, *time.Time) {
 
+	infof, _, _, _ := LogFuncs(logfile)
+
 	var err error
 	var eventDatetime *time.Time = nil
 
 	appVerMatches := appVerRegex.FindStringSubmatch(line)
 	if len(appVerMatches) > 1 {
-		log.WithField("file", logfile.Filename).Warnf("Found app version: %s", appVerMatches[1])
+		infof("Found app version: %s", appVerMatches[1])
 		setAppVer(appVerMatches[1])
 	}
 
 	eventAttributes, err := parser.Parse(line)
 	if err != nil {
-		// log.WithField("file", logfile.Filename).Warnf("Unable to parse line: %s", line)
 		eventAttributes = parser.Defaults()
 		eventAttributes["log_line"] = line
 		return nil, nil
