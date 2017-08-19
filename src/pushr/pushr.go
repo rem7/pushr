@@ -78,15 +78,17 @@ func MonitorFile(ctx context.Context, logfile Logfile) error {
 
 	infof, warnf, errorf, fatalf := LogFuncs(logfile)
 
+	infof("monitoring")
+
 	stream, ok := gAllStreams[logfile.StreamName]
 	if !ok {
-		errStr := fmt.Sprintf("Stream %s not found to fail file %s", logfile.StreamName, logfile.Filename)
+		errStr := fmt.Sprintf("stream %s not found to fail file %s", logfile.StreamName, logfile.Filename)
 		return errors.New(errStr)
 	}
 
 	fastForward := false
 	if !logfile.LastTimestamp.IsZero() {
-		warnf("Found cached time of last scan at %s", logfile.LastTimestamp)
+		warnf("found cached time of last scan at %s", logfile.LastTimestamp)
 		fastForward = true
 	}
 
@@ -113,7 +115,6 @@ func MonitorFile(ctx context.Context, logfile Logfile) error {
 
 	t := tail.NewTailWithCtx(ctx, logfile.Filename, gFollow, logfile.RetryFileOpen)
 	stringBuffer := bytes.NewBufferString("")
-
 	flushTimer := time.NewTicker(time.Second * 30)
 
 LOOP:
@@ -164,12 +165,12 @@ LOOP:
 
 			err := stream.Stream(record)
 			if err != nil {
-				errorf("Error streaming:\n%s", err.Error())
+				errorf("error streaming:\n%s", err.Error())
 			}
 		}
 	}
 
-	infof("Reached EOF. follow=%v", gFollow)
+	infof("reached end of file")
 
 	return nil
 }

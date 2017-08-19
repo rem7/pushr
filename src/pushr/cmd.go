@@ -179,7 +179,7 @@ func start(configPath string) {
 	}
 
 	for i := 0; i < len(allFiles); i++ {
-		log.Printf("%+v", allFiles[i].Filename)
+		log.Infof("%+v", allFiles[i].Filename)
 	}
 
 	for _, logfile := range allFiles {
@@ -190,17 +190,8 @@ func start(configPath string) {
 
 		wg.Add(1)
 		go func(l Logfile) {
-
-			defer func() {
-				wg.Done()
-			}()
-
-			log.WithField("file", l.Filename).Warnf("Pushing to Firehose %v", l.StreamName)
-			err := MonitorFile(context.Background(), l)
-			if err != nil {
-				log.WithField("file", l.Filename).Errorf("Error pushing file %v", l.Filename)
-			}
-
+			defer wg.Done()
+			MonitorFile(ctx, l)
 		}(logfile)
 
 	}
@@ -210,16 +201,15 @@ func start(configPath string) {
 	cancel()
 
 	for streamName, stream := range gAllStreams {
-		log.WithField("file", streamName).Infof("Waiting for stream %v", streamName)
+		log.WithField("stream", streamName).Infof("Waiting for stream")
 		stream.Close()
 	}
 }
 
 func configureStreams(ctx context.Context, config ConfigFile) map[string]Streamer {
+	// create all streamers from the config
 
 	allStreams := make(map[string]Streamer)
-
-	// create all streamers from the config
 	for streamName, conf := range config.StreamConfigs {
 
 		var stream Streamer
