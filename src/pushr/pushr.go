@@ -33,6 +33,7 @@ var (
 	gVersion         = ""
 	gHostname        = "HOSTNAME"
 	gFollow          = true
+	gScanDir         = true
 	gStopChans       = []chan bool{}
 	gApp             string
 	gAppVer          string

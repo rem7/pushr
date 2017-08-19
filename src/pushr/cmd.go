@@ -54,6 +54,11 @@ func main() {
 			Usage:       "--follow <true|false>",
 			Destination: &gFollow,
 		},
+		cli.BoolFlag{
+			Name:        "scan-dir",
+			Usage:       "--scan-dir <true|false>",
+			Destination: &gScanDir,
+		},
 		cli.IntFlag{
 			Name:  "limit-days-ago",
 			Usage: "--limit-days-ago <number of days>",
@@ -154,15 +159,17 @@ func start(configPath string) {
 			var files []string
 
 			// list all files
-			matches, err := filepath.Glob(logfile.Directory)
-			if err != nil {
-				log.Fatal(err.Error())
-			}
-			for _, m := range matches {
-				if isDir, err := IsDir(m); err == nil && !isDir {
-					files = append(files, m)
+			if gScanDir {
+				matches, err := filepath.Glob(logfile.Directory)
+				if err != nil {
+					log.Fatal(err.Error())
 				}
+				for _, m := range matches {
+					if isDir, err := IsDir(m); err == nil && !isDir {
+						files = append(files, m)
+					}
 
+				}
 			}
 
 			// directory, monitor it
