@@ -29,16 +29,17 @@ const (
 )
 
 var (
-	delim = regexp.MustCompile(`\r?\n`)
+	gDelim = regexp.MustCompile(`\r?\n`)
 )
 
 type Tail struct {
-	Filename      string
-	LineChan      chan string
-	Cancel        context.CancelFunc
-	follow        bool
-	context       context.Context
-	retryFileOpen bool // keep trying to re-open the file, helpful when the file doesn't exist yet
+	Filename       string
+	LineChan       chan string
+	Cancel         context.CancelFunc
+	follow         bool
+	context        context.Context
+	retryFileOpen  bool // keep trying to re-open the file, helpful when the file doesn't exist yet
+	lineStartSplit bool // logic for handling begining of line split (splunk like, by timestamp)
 }
 
 func NewTail(path string) *Tail {
@@ -46,12 +47,13 @@ func NewTail(path string) *Tail {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	t := &Tail{
-		Filename:      path,
-		LineChan:      make(chan string),
-		Cancel:        cancel,
-		follow:        true,
-		context:       ctx,
-		retryFileOpen: true,
+		Filename:       path,
+		LineChan:       make(chan string),
+		Cancel:         cancel,
+		follow:         true,
+		context:        ctx,
+		retryFileOpen:  true,
+		lineStartSplit: false,
 	}
 
 	t.Start()
@@ -63,17 +65,22 @@ func (t *Tail) Start() {
 	go t.watchFile(t.context, t.Filename)
 }
 
-func NewTailWithCtx(ctx context.Context, path string, follow, retryFileOpen bool) *Tail {
+func NewTailWithCtx(ctx context.Context, path string, follow, retryFileOpen bool, delim *regexp.Regexp, lineStartSplit bool) *Tail {
 
 	ctx, cancel := context.WithCancel(ctx)
 
+	if delim != nil {
+		gDelim = delim
+	}
+
 	t := &Tail{
-		Filename:      path,
-		LineChan:      make(chan string),
-		Cancel:        cancel,
-		follow:        follow,
-		context:       ctx,
-		retryFileOpen: retryFileOpen,
+		Filename:       path,
+		LineChan:       make(chan string),
+		Cancel:         cancel,
+		follow:         follow,
+		context:        ctx,
+		retryFileOpen:  retryFileOpen,
+		lineStartSplit: lineStartSplit,
 	}
 
 	t.Start()
@@ -112,7 +119,9 @@ func (t *Tail) openFile(path string) (*os.File, error) {
 	return f, nil
 }
 
-func (t *Tail) watchFile(ctx context.Context, path string) {
+func (t *Tail) watchFile(parent context.Context, path string) {
+
+	ctx, ctxCancel := context.WithCancel(parent)
 
 	fileIn, err := t.openFile(path)
 	if err != nil {
@@ -124,7 +133,6 @@ func (t *Tail) watchFile(ctx context.Context, path string) {
 	r := bufio.NewReader(fileIn)
 
 	accum := new(bytes.Buffer)
-	done := make(chan bool)
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -140,53 +148,65 @@ func (t *Tail) watchFile(ctx context.Context, path string) {
 loop:
 	for {
 
-		buffer := read(ctx, r, accum)
-		reader := bufio.NewReader(buffer)
-		for {
+		if t.lineStartSplit {
+			readFrontSplit(ctx, t.LineChan, r, accum)
+		} else {
+			buffer := read(ctx, r, accum)
+			reader := bufio.NewReader(buffer)
+			for {
 
-			select {
-			case <-ctx.Done():
-				t.Close()
-				return
-			default:
-				break
-			}
-
-			line, err := reader.ReadString('\n')
-			if err != nil && err != io.EOF {
-				log.WithField("file", path).Error(err.Error())
-				break
-
-			}
-
-			if len(line) > 0 {
-				t.LineChan <- string([]rune(strings.TrimRight(line, "\n")))
-			}
-
-			if err == io.EOF {
-				if !t.follow {
+				select {
+				case <-ctx.Done():
 					t.Close()
 					return
+				default:
+					break
 				}
-				break
-			}
 
+				line, err := reader.ReadString('\n')
+				if err != nil && err != io.EOF {
+					log.WithField("file", path).Error(err.Error())
+					break
+
+				}
+
+				if len(line) > 0 {
+					t.LineChan <- string([]rune(strings.TrimRight(line, "\n")))
+				}
+
+				if err == io.EOF {
+					if !t.follow {
+						t.Close()
+						return
+					}
+					break
+				}
+
+			}
 		}
 
 		select {
 		case <-time.After(SLEEP_TIMEOUT):
+			break
 		case event := <-watcher.Events:
 			if event.Op&fsnotify.Rename == fsnotify.Rename {
 				log.WithField("file", path).Info("File renamed. Monitoring old fd for 10 minutes")
 				go t.watchFile(ctx, path)
 				time.AfterFunc(FD_TIMEOUT, func() {
 					log.WithField("file", path).Info("Closing old fd")
-					done <- true
+					ctxCancel()
 				})
 			}
+			break
 		case err := <-watcher.Errors:
 			log.WithField("file", path).Errorf("inotify error: %v", err)
-		case <-done:
+			break
+		case <-ctx.Done():
+			if accum.Len() > 0 {
+				t.LineChan <- accum.String()
+				accum.Reset()
+			}
+			t.Close()
 			break loop
 		}
 	}
@@ -218,7 +238,7 @@ func read(ctx context.Context, f io.Reader, accum *bytes.Buffer) io.Reader {
 			}
 
 			slice := buffer[:n]
-			locs := delim.FindAllSubmatchIndex(slice, -1)
+			locs := gDelim.FindAllSubmatchIndex(slice, -1)
 
 			if len(locs) == 0 {
 				accum.Write(slice)
@@ -242,4 +262,78 @@ func read(ctx context.Context, f io.Reader, accum *bytes.Buffer) io.Reader {
 	}()
 
 	return r
+}
+
+func readFrontSplit(ctx context.Context, lineChan chan string, f io.Reader, accum *bytes.Buffer) {
+
+	buffer_size := 1048576 // 1MB
+
+	// go func() {
+	// defer w.Close()
+
+	buffer := make([]byte, buffer_size)
+	first := true
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			break
+		}
+
+		n, err := f.Read(buffer)
+		if err != nil {
+			break
+		}
+
+		slice := buffer[:n]
+		locs := gDelim.FindAllSubmatchIndex(slice, -1)
+
+		if len(locs) == 0 {
+			accum.Write(slice)
+		} else {
+
+			line_begin_idx := 0
+			line_end_idx := 0
+			next_start := 0
+			for _, loc := range locs {
+				if first {
+					first = false
+					next_start = loc[0]
+					if loc[0] == 0 && accum.Len() > 0 {
+						lineChan <- accum.String()
+						accum.Reset()
+					}
+					continue
+				} else {
+					line_begin_idx = next_start
+				}
+
+				line_end_idx = loc[0]
+				next_start = loc[1] - (loc[1] - loc[0])
+				data := bytes.Replace(slice[line_begin_idx:line_end_idx], []byte("\x0A"), nil, -1)
+				data = append(accum.Bytes(), data...)
+				lineChan <- string(data)
+				accum.Reset()
+				// data_trim := bytes.TrimRight(data, "\n")
+				// log.Printf("%v -> %v", line_begin_idx, line_end_idx)
+				// fmt.Printf("\n-----line start %v -----\n%s\n-----line end %v -----\n", line_begin_idx, data_trim, line_end_idx)
+
+			}
+
+			data := slice[next_start:n]
+			accum.Write(data)
+			// w.Write(data)
+			// lineChan <- string(data)
+			// data_trim := bytes.TrimRight(data, "\n")
+			// fmt.Printf("\n-----line start %v -----\n%s\n-----line end %v -----\n", next_start, data, n)
+		}
+	}
+
+	// lineChan <- string(accum.Bytes())
+	// accum.Reset()
+	// }()
+
+	// <-ctx.Done()
+
 }

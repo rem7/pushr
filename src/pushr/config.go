@@ -10,7 +10,6 @@ package main
 
 import (
 	"fmt"
-	log "github.com/Sirupsen/logrus"
 	"gopkg.in/ini.v1"
 	"io"
 	"io/ioutil"
@@ -19,6 +18,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	log "github.com/Sirupsen/logrus"
+	"gopkg.in/yaml.v2"
 )
 
 var typeLengthRegex = regexp.MustCompile(`^([^,]*),?(.*)?`)
@@ -33,41 +35,42 @@ type Attribute struct {
 }
 
 type ConfigFile struct {
-	Logfiles           []Logfile
-	App                string `ini:"app"`
-	AppVer             string `ini:"app_ver"`
-	AwsAccessKey       string `ini:"aws_access_key"`
-	AwsSecretAccessKey string `ini:"aws_secret_access_key"`
-	AwsRegion          string `ini:"aws_region"`
-	Hostname           string `ini:"hostname"`
-	// Stream             string `ini:"stream"`
-	StreamConfigs map[string]StreamConfig
-
-	// RecordFormat       []Attribute
+	App                string    `yaml:"app" ini:"app"`
+	AppVer             string    `yaml:"app_ver" ini:"app_ver"`
+	AwsAccessKey       string    `yaml:"aws_access_key" ini:"aws_access_key"`
+	AwsSecretAccessKey string    `yaml:"aws_secret_access_key" ini:"aws_secret_access_key"`
+	AwsRegion          string    `yaml:"aws_region" ini:"aws_region"`
+	Hostname           string    `yaml:"hostname" ini:"hostname"`
+	Logfiles           []Logfile `yaml:"files"`
+	StreamConfigs      map[string]StreamConfig
+	Streams            []StreamConfig
 }
 
 type Logfile struct {
-	Filename       string `ini:"file"`
-	Directory      string `ini:"directory"`
-	StreamName     string `ini:"stream"`
-	TimeFormat     string `ini:"time_format"`
-	LineRegex      string `ini:"line_regex"`
-	ParseMode      string `ini:"parse_mode"`
-	RetryFileOpen  bool   `ini:"retry_file_open"`
-	FieldMappings  map[string]string
-	FieldsOrder    []string
-	FieldsOrderStr string `ini:"fields_order"`
-	LastTimestamp  time.Time
-	Regex          *regexp.Regexp
+	Filename           string            `yaml:"file" ini:"file"`
+	Directory          string            `yaml:"directory" ini:"directory"`
+	StreamName         string            `yaml:"stream" ini:"stream"`
+	TimeFormat         string            `yaml:"time_format" ini:"time_format"`
+	LineRegex          string            `yaml:"line_regex" ini:"line_regex"`
+	FrontSplitRegexStr string            `yaml:"front_split_regex" ini:"front_split_regex"` // option used to split at the begining of the line instead
+	ParseMode          string            `yaml:"parse_mode" ini:"parse_mode"`
+	RetryFileOpen      bool              `yaml:"retry_file_open" ini:"retry_file_open"`
+	FieldMappings      map[string]string `yaml:"field_mappings"`
+	BufferMultiLines   bool              `yaml:"buffer_multi_lines" ini:"buffer_multi_lines"`
+	FieldsOrder        []string
+	FieldsOrderStr     string `ini:"fields_order"`
+	LastTimestamp      time.Time
+	Regex              *regexp.Regexp
+	FrontSplitRegex    *regexp.Regexp
 }
 
 type StreamConfig struct {
-	Name               string `ini:"name"`
-	Type               string `ini:"type"`
-	Url                string `ini:"url"`
-	StreamApiKey       string `ini:"stream_api_key"`
-	RecordFormatString string `ini:"record_format"`
-	RecordFormat       []Attribute
+	Name               string      `yaml:"name" ini:"name"`
+	Type               string      `yaml:"type" ini:"type"`
+	Url                string      `yaml:"url" ini:"url"`
+	StreamApiKey       string      `yaml:"stream_api_key" ini:"stream_api_key"`
+	RecordFormatString string      `ini:"record_format"`
+	RecordFormat       []Attribute `yaml:"record_format"`
 }
 
 var defaultAttributes = []Attribute{
@@ -102,6 +105,23 @@ func testParseConfig(configPath string) {
 
 	config := parseConfig(configFile)
 	log.Printf("%+v", config)
+}
+
+func parseYamlConfig(src io.Reader) ConfigFile {
+
+	data, err := ioutil.ReadAll(src)
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+
+	config := ConfigFile{}
+	err = yaml.Unmarshal(data, &config)
+	if err != nil {
+		log.Fatalf("error: %v", err)
+	}
+
+	return config
+
 }
 
 func parseConfig(src io.Reader) ConfigFile {
@@ -196,6 +216,10 @@ func parseLogfileSection(cfg *ini.File, sectionName string) Logfile {
 		log.Fatal(err.Error())
 	}
 
+	if n.FrontSplitRegexStr != "" {
+		n.FrontSplitRegex = regexp.MustCompile(n.FrontSplitRegexStr)
+	}
+
 	if n.ParseMode == "regex" {
 		n.Regex = regexp.MustCompile(n.LineRegex)
 	} else if n.ParseMode == "json" || n.ParseMode == "date_keyvalue" {
@@ -214,7 +238,7 @@ func parseLogfileSection(cfg *ini.File, sectionName string) Logfile {
 	} else if n.ParseMode == "csv" {
 		n.FieldsOrder = parseFieldOrder(n.FieldsOrderStr)
 		if len(n.FieldsOrder) == 0 {
-			log.Fatalf("json needs subsection with field_mappings")
+			log.Fatalf("csv needs subsection with field_mappings")
 		}
 	}
 

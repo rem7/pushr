@@ -114,10 +114,22 @@ func MonitorFile(ctx context.Context, logfile Logfile) error {
 		fatalf("%s parse_mode not supported", logfile.ParseMode)
 	}
 
-	t := tail.NewTailWithCtx(ctx, logfile.Filename, gFollow, logfile.RetryFileOpen)
+	// delim := regexp.MustCompile(`\d{4}/\d{2}/\d{2}\s\d{2}\:\d{2}\:\d{2}\.\d{3}\s`)
+	var t *tail.Tail
+	if logfile.FrontSplitRegexStr != "" {
+		infof("front_line_regex: true")
+		t = tail.NewTailWithCtx(ctx, logfile.Filename, gFollow, logfile.RetryFileOpen, logfile.FrontSplitRegex, true)
+	} else {
+		infof("front_line_regex: false")
+		t = tail.NewTailWithCtx(ctx, logfile.Filename, gFollow, logfile.RetryFileOpen, nil, false)
+	}
+
 	stringBuffer := bytes.NewBufferString("")
 	flushTimer := time.NewTicker(time.Second * 30)
 	var streamed_lines_ctr uint64 = 0
+	var lines_ctr uint64 = 0
+	bufferMultiLines := logfile.BufferMultiLines
+	// infof("buffer_multi_lines: %v", bufferMultiLines)
 
 LOOP:
 	for {
@@ -134,34 +146,54 @@ LOOP:
 			if !ok {
 				break LOOP
 			}
+			lines_ctr += 1
+
+			// fmt.Printf("\nrecvd:\n%s\n", line)
 
 			record, eventDatetime := processLine(logfile, parser, line, stream.RecordFormat())
 			if fastForward && eventDatetime == nil {
 				// when fastforwarding skip lines without event_datetime
+				// log.Printf("skip 1")
 				continue
 			}
 
 			if fastForward && (eventDatetime.Before(logfile.LastTimestamp) || eventDatetime.Equal(logfile.LastTimestamp)) {
+				// log.Printf("skip 2")
 				continue
 			}
 
 			if eventDatetime != nil && eventDatetime.Before(gTimeThreshold) {
+				// log.Printf("skip 3")
 				continue
 			}
 
-			if record == nil && stringBuffer.Len() < MAX_BUFFERED_LINE {
-				stringBuffer.WriteString(line)
-				stringBuffer.WriteString("\\n")
+			if bufferMultiLines {
+				// bufferMultiLines adds the lines that couldn't be parsed to a buffer
+				// and it will stream the buffer once a line has been able to be parsed
+				// or if the MAX_BUFFERED_LINE is reached.
+				if record == nil && stringBuffer.Len() < MAX_BUFFERED_LINE {
+					stringBuffer.WriteString(line)
+					stringBuffer.WriteString("\\n")
+					// log.Printf("skip 4")
+					continue
+				}
+
+			} else if record == nil && eventDatetime == nil { // this means that processLine could not parse the line
+				errorf("unable to parse line %d: %s", lines_ctr, line)
+				// log.Printf("skip 5")
 				continue
 			}
 
 			fastForward = false
 
-			if (record != nil && stringBuffer.Len() > 0) || stringBuffer.Len() >= MAX_BUFFERED_LINE {
-				flush(stringBuffer.String(), parser, stream)
-				stringBuffer.Reset()
-				if record == nil {
-					continue
+			if bufferMultiLines {
+				if (record != nil && stringBuffer.Len() > 0) || stringBuffer.Len() >= MAX_BUFFERED_LINE {
+					flush(stringBuffer.String(), parser, stream)
+					stringBuffer.Reset()
+					if record == nil {
+						// log.Printf("skip 6")
+						continue
+					}
 				}
 			}
 
@@ -173,7 +205,7 @@ LOOP:
 		}
 	}
 
-	infof("monitoring stop. streamed %d lines", streamed_lines_ctr)
+	infof("monitoring stop. streamed %d lines of %d", streamed_lines_ctr, lines_ctr)
 
 	return nil
 }

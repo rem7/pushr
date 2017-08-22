@@ -10,13 +10,14 @@ package main
 
 import (
 	"context"
-	// "github.com/pkg/profile"
+	log "github.com/Sirupsen/logrus"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
+	// "github.com/pkg/profile"
 	"github.com/codegangsta/cli"
 )
 
@@ -138,7 +139,15 @@ func start(configPath string) {
 		log.WithField("file", configPath).Fatalf(err.Error())
 	}
 
-	config := parseConfig(configFile)
+	var config ConfigFile
+	if strings.Contains(configPath, ".yaml") {
+		log.WithField("file", configPath).Infof("loading yaml config")
+		config = parseYamlConfig(configFile)
+	} else {
+		log.WithField("file", configPath).Infof("loading ini config")
+		config = parseConfig(configFile)
+	}
+
 	gHostname = config.Hostname
 	gAllStreams = configureStreams(ctx, config)
 
