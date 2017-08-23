@@ -9,24 +9,13 @@
 package main
 
 import (
-	"fmt"
-	"gopkg.in/ini.v1"
-	"io"
-	"io/ioutil"
+	"context"
 	"os"
 	"regexp"
-	"strconv"
-	"strings"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-	"gopkg.in/yaml.v2"
 )
-
-var typeLengthRegex = regexp.MustCompile(`^([^,]*),?(.*)?`)
-var skipSections = regexp.MustCompile(`(record_format|DEFAULT|\w+\.\w)`)                      // only for parsing loglifes
-var streamSection = regexp.MustCompile(`^stream\.(?P<reference_name>[^\.]*)$`)                // only streams
-var streamRecordFormatSection = regexp.MustCompile(`^stream\.(?P<stream>.*)\.record_format$`) // only streams record format
 
 type Attribute struct {
 	Key    string
@@ -42,11 +31,11 @@ type ConfigFile struct {
 	AwsRegion          string    `yaml:"aws_region" ini:"aws_region"`
 	Hostname           string    `yaml:"hostname" ini:"hostname"`
 	Logfiles           []Logfile `yaml:"files"`
-	StreamConfigs      map[string]StreamConfig
 	Streams            []StreamConfig
 }
 
 type Logfile struct {
+	Name               string            `yaml:"name"`
 	Filename           string            `yaml:"file" ini:"file"`
 	Directory          string            `yaml:"directory" ini:"directory"`
 	StreamName         string            `yaml:"stream" ini:"stream"`
@@ -65,6 +54,7 @@ type Logfile struct {
 }
 
 type StreamConfig struct {
+	StreamName         string      `yaml:"stream_name"`
 	Name               string      `yaml:"name" ini:"name"`
 	Type               string      `yaml:"type" ini:"type"`
 	Url                string      `yaml:"url" ini:"url"`
@@ -96,6 +86,15 @@ var defaultAttributes = []Attribute{
 	Attribute{"log_line", "string", 0},
 }
 
+func (c *ConfigFile) GetStream(name string) (*StreamConfig, bool) {
+	for _, s := range c.Streams {
+		if s.StreamName == name {
+			return &s, true
+		}
+	}
+	return nil, false
+}
+
 func testParseConfig(configPath string) {
 
 	configFile, err := os.Open(configPath)
@@ -107,170 +106,36 @@ func testParseConfig(configPath string) {
 	log.Printf("%+v", config)
 }
 
-func parseYamlConfig(src io.Reader) ConfigFile {
+func configureStreams(ctx context.Context, config ConfigFile) map[string]Streamer {
+	// create all streamers from the config
 
-	data, err := ioutil.ReadAll(src)
-	if err != nil {
-		log.Fatalf(err.Error())
-	}
+	allStreams := make(map[string]Streamer)
+	for _, conf := range config.Streams {
 
-	config := ConfigFile{}
-	err = yaml.Unmarshal(data, &config)
-	if err != nil {
-		log.Fatalf("error: %v", err)
-	}
+		streamName := conf.StreamName
 
-	return config
-
-}
-
-func parseConfig(src io.Reader) ConfigFile {
-
-	data, err := ioutil.ReadAll(src)
-	if err != nil {
-		log.Fatalf(err.Error())
-	}
-
-	cfg, err := ini.Load(data)
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-
-	var config ConfigFile
-	err = cfg.Section("DEFAULT").MapTo(&config)
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-
-	config.StreamConfigs = make(map[string]StreamConfig)
-	sections := cfg.SectionStrings()
-
-	for _, section := range sections {
-		matches := streamRecordFormatSection.FindStringSubmatch(section)
-		if len(matches) > 1 {
-			streamName := matches[1]
-			log.Printf("Parsing streamSection: %s", section)
-			var stream StreamConfig
-			err := cfg.Section(section).MapTo(&stream)
-			if err != nil {
-				log.Fatal(err.Error())
-			}
-			config.StreamConfigs[streamName] = stream
-
-			// logfile := parseLogfileSection(cfg, section)
-			// config.Logfiles = append(config.Logfiles, logfile)
+		var stream Streamer
+		switch {
+		case conf.Type == "firehose":
+			log.WithField("stream", streamName).Info("streaming to firehose: %s", conf.Name)
+			stream = NewFirehoseStream(ctx, conf.RecordFormat, config.AwsAccessKey,
+				config.AwsSecretAccessKey, config.AwsRegion, conf.Name)
+		case conf.Type == "csv":
+			filename := conf.Name + ".csv"
+			log.WithField("stream", streamName).Infof("streaming to csv %s", filename)
+			stream = NewCSVStream(conf.RecordFormat, filename)
+			break
+		case conf.Type == "http":
+			log.WithField("stream", streamName).Info("streaming to http")
+			stream = NewDCHTTPStream(conf.RecordFormat, conf.Url, conf.StreamApiKey, 125000)
+			break
+		default:
+			log.Fatalf("stream type: %s not supported", conf.Type)
 		}
+
+		allStreams[streamName] = stream
+
 	}
 
-	for _, section := range sections {
-		matches := streamRecordFormatSection.FindStringSubmatch(section)
-		if len(matches) > 1 {
-			streamName := matches[1]
-			if stream, ok := config.StreamConfigs[streamName]; ok {
-				stream.RecordFormat = parseRecordFormat(cfg, section)
-				log.Infof("Parsing streamRecordFormatSection: %s", section)
-				for i := 0; i < len(stream.RecordFormat); i++ {
-					log.Infof("%v -> %+v", stream.Name, stream.RecordFormat[i])
-				}
-				config.StreamConfigs[streamName] = stream
-			} else {
-				log.Fatalf("stream not found. %s", streamName)
-			}
-
-		}
-	}
-
-	for _, section := range sections {
-		if !skipSections.MatchString(section) {
-			logfile := parseLogfileSection(cfg, section)
-			config.Logfiles = append(config.Logfiles, logfile)
-		}
-	}
-
-	// config.RecordFormat = parseRecordFormat(cfg, "record_format")
-	// log.Info("Record format:")
-	// for i := 0; i < len(config.RecordFormat); i++ {
-	// 	log.Infof("%+v", config.RecordFormat[i])
-	// }
-
-	gApp = config.App
-	setAppVer(config.AppVer)
-
-	if config.Hostname == "" {
-		var err error
-		config.Hostname, err = os.Hostname()
-		if err != nil {
-			log.Fatalf("Error getting hostname. %v", err)
-		}
-	}
-
-	return config
-
-}
-
-func parseLogfileSection(cfg *ini.File, sectionName string) Logfile {
-
-	var n Logfile
-	err := cfg.Section(sectionName).MapTo(&n)
-	if err != nil {
-		log.Fatal(err.Error())
-	}
-
-	if n.FrontSplitRegexStr != "" {
-		n.FrontSplitRegex = regexp.MustCompile(n.FrontSplitRegexStr)
-	}
-
-	if n.ParseMode == "regex" {
-		n.Regex = regexp.MustCompile(n.LineRegex)
-	} else if n.ParseMode == "json" || n.ParseMode == "date_keyvalue" {
-		subsectionName := fmt.Sprintf("%s.field_mappings", sectionName)
-		subsection, err := cfg.GetSection(subsectionName)
-		if err != nil {
-			log.Fatalf("json needs subsection with field_mappings")
-		}
-		keyNames := subsection.KeyStrings()
-		keyValues := subsection.Keys()
-		n.FieldMappings = make(map[string]string, len(keyNames))
-
-		for i := 0; i < len(keyNames); i++ {
-			n.FieldMappings[keyNames[i]] = keyValues[i].String()
-		}
-	} else if n.ParseMode == "csv" {
-		n.FieldsOrder = parseFieldOrder(n.FieldsOrderStr)
-		if len(n.FieldsOrder) == 0 {
-			log.Fatalf("csv needs subsection with field_mappings")
-		}
-	}
-
-	return n
-
-}
-
-func parseFieldOrder(fieldOrder string) []string {
-	return strings.Split(fieldOrder, ",")
-}
-
-func parseRecordFormat(cfg *ini.File, section string) []Attribute {
-
-	recordFormat := []Attribute{}
-	record, err := cfg.GetSection(section)
-	if err != nil {
-		return defaultAttributes
-	}
-
-	keyNames := record.KeyStrings()
-	keyValues := record.Keys()
-
-	for i := 0; i < len(keyNames); i++ {
-		typeLength := typeLengthRegex.FindStringSubmatch(keyValues[i].String())
-		val := Attribute{Key: keyNames[i]}
-		if len(typeLength) > 0 {
-			val.Type = typeLength[1]
-			val.Length, _ = strconv.Atoi(typeLength[2])
-		}
-		recordFormat = append(recordFormat, val)
-	}
-
-	return recordFormat
-
+	return allStreams
 }

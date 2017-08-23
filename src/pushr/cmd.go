@@ -138,6 +138,7 @@ func start(configPath string) {
 	if err != nil {
 		log.WithField("file", configPath).Fatalf(err.Error())
 	}
+	defer configFile.Close()
 
 	var config ConfigFile
 	if strings.Contains(configPath, ".yaml") {
@@ -147,8 +148,6 @@ func start(configPath string) {
 		log.WithField("file", configPath).Infof("loading ini config")
 		config = parseConfig(configFile)
 	}
-
-	gHostname = config.Hostname
 	gAllStreams = configureStreams(ctx, config)
 
 	// TODO: Handle different type of streams correctly
@@ -216,36 +215,4 @@ func start(configPath string) {
 		log.WithField("stream", streamName).Infof("Waiting for stream")
 		stream.Close()
 	}
-}
-
-func configureStreams(ctx context.Context, config ConfigFile) map[string]Streamer {
-	// create all streamers from the config
-
-	allStreams := make(map[string]Streamer)
-	for streamName, conf := range config.StreamConfigs {
-
-		var stream Streamer
-		switch {
-		case conf.Type == "firehose":
-			log.WithField("stream", streamName).Info("streaming to firehose: %s", conf.Name)
-			stream = NewFirehoseStream(ctx, conf.RecordFormat, config.AwsAccessKey,
-				config.AwsSecretAccessKey, config.AwsRegion, conf.Name)
-		case conf.Type == "csv":
-			filename := conf.Name + ".csv"
-			log.WithField("stream", streamName).Infof("streaming to csv %s", filename)
-			stream = NewCSVStream(conf.RecordFormat, filename)
-			break
-		case conf.Type == "http":
-			log.WithField("stream", streamName).Info("streaming to http")
-			stream = NewDCHTTPStream(conf.RecordFormat, conf.Url, conf.StreamApiKey, 125000)
-			break
-		default:
-			log.Fatalf("stream type: %s not supported", conf.Type)
-		}
-
-		allStreams[streamName] = stream
-
-	}
-
-	return allStreams
 }
