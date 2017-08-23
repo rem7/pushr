@@ -10,6 +10,7 @@ files:
     parse_mode: regex
     time_format: 02/Jan/2006:15:04:05 +0000
     retry_file_open: true 
+    line_regex: #nginx-access ^(?P<remote_address>[^ ]*)\ \-\ (?P<remote_user>[^ ]*)\ \[(?P<event_datetime>[^\]]*)\] \"[^\"]*\"\ (?P<log_level>[\d]*)\ (?P<response_bytes>[-\d]*)\ \"(?P<http_referer>[^\"]*)\"\ \"(?P<http_user_agent>[^\"]*)\"\s?(?P<response_s>[-\d\.]+)?
     stream: app-log
     buffer_multi_lines: false
   - name: my-app-json

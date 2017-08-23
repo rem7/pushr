@@ -1,3 +1,66 @@
+## configuration
+
+### YAML
+Recommended config file is in YAML 
+```yaml
+aws_region: us-west-2
+aws_access_key: XXXXXXXXXXXXXXXXXXXX
+aws_secret_access_key: ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ
+app: my-app
+app_ver: 1.0
+
+files:
+  - name: nginx-access
+    file: /var/log/nginx/access.log
+    parse_mode: regex
+    time_format: 02/Jan/2006:15:04:05 +0000
+    retry_file_open: true 
+    line_regex: #nginx-access ^(?P<remote_address>[^ ]*)\ \-\ (?P<remote_user>[^ ]*)\ \[(?P<event_datetime>[^\]]*)\] \"[^\"]*\"\ (?P<log_level>[\d]*)\ (?P<response_bytes>[-\d]*)\ \"(?P<http_referer>[^\"]*)\"\ \"(?P<http_user_agent>[^\"]*)\"\s?(?P<response_s>[-\d\.]+)?
+    stream: app-log
+    buffer_multi_lines: false
+  - name: my-app-json
+    file: /var/log/node.out.log
+    parse_mode: json
+    time_format: 2006-01-02T15:04:05.000Z
+    stream: app-log
+    buffer_multi_lines: false 
+    field_mappings:
+      log_level: severity
+      event_datetime: timestamp
+      remote_address: remoteIp
+      device_type: deviceModel
+      device_tag: deviceId
+      user_tag: userId
+      country: country
+      os: platform
+
+streams:
+  - stream_name: app-log
+    name: app-log-firehose
+    type: firehose
+    record_format:
+    - {key: app, type: string, length: 16}
+    - {key: app_ver, type: string, length: 16}
+    - {key: ingest_datetime, type: timestamp}
+    - {key: event_datetime, type: timestamp}
+    - {key: hostname, type: string, length: 64}
+    - {key: filename, type: string, length: 256}
+    - {key: log_level, type: string, length: 16}
+    - {key: device_tag, type: string, length: 64}
+    - {key: user_tag, type: string, length: 64}
+    - {key: remote_address, type: string, length: 64}
+    - {key: response_bytes, type: integer}
+    - {key: response_ms, type: double}
+    - {key: device_type, type: string, length: 32}
+    - {key: os, type: string, length: 16}
+    - {key: os_ver, type: string, length: 16}
+    - {key: browser, type: string, length: 32}
+    - {key: browser_ver, type: string, length: 16}
+    - {key: country, type: string, length: 64}
+    - {key: language, type: string, length: 16}
+    - {key: log_line, type: string}
+```
+
 
 This project uses `gb` to build and `gb vendor` manage dependencies.
 
