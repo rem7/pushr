@@ -30,24 +30,28 @@ func LogFuncs(logfile Logfile) (func(msg string, args ...interface{}),
 	infof := func(msg string, args ...interface{}) {
 		log.WithField("file", logfile.Filename).
 			WithField("stream", logfile.StreamName).
+			WithField("logfile_name", logfile.Name).
 			Infof(msg, args...)
 	}
 
 	warnf := func(msg string, args ...interface{}) {
 		log.WithField("file", logfile.Filename).
 			WithField("stream", logfile.StreamName).
+			WithField("logfile_name", logfile.Name).
 			Warnf(msg, args...)
 	}
 
 	errorf := func(msg string, args ...interface{}) {
 		log.WithField("file", logfile.Filename).
 			WithField("stream", logfile.StreamName).
+			WithField("logfile_name", logfile.Name).
 			Errorf(msg, args...)
 	}
 
 	fatalf := func(msg string, args ...interface{}) {
 		log.WithField("file", logfile.Filename).
 			WithField("stream", logfile.StreamName).
+			WithField("logfile_name", logfile.Name).
 			Fatalf(msg, args...)
 	}
 

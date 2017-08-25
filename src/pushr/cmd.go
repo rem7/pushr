@@ -13,7 +13,6 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -134,20 +133,7 @@ func start(configPath string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	handleSignal(cancel)
 
-	configFile, err := os.Open(configPath)
-	if err != nil {
-		log.WithField("file", configPath).Fatalf(err.Error())
-	}
-	defer configFile.Close()
-
-	var config ConfigFile
-	if strings.Contains(configPath, ".yaml") {
-		log.WithField("file", configPath).Infof("loading yaml config")
-		config = parseYamlConfig(configFile)
-	} else {
-		log.WithField("file", configPath).Infof("loading ini config")
-		config = parseConfig(configFile)
-	}
+	config := parseConfig(configPath)
 	gAllStreams = configureStreams(ctx, config)
 
 	// TODO: Handle different type of streams correctly
@@ -183,10 +169,10 @@ func start(configPath string) {
 			// directory, monitor it
 			logfile.Filename = wildcard
 			wg.Add(1)
-			go func() {
+			go func(logfile Logfile) {
 				defer wg.Done()
 				MonitorDir(ctx, logfile, files)
-			}()
+			}(logfile)
 		} else {
 			allFiles = append(allFiles, logfile)
 		}
@@ -212,7 +198,7 @@ func start(configPath string) {
 	cancel()
 
 	for streamName, stream := range gAllStreams {
-		log.WithField("stream", streamName).Infof("Waiting for stream")
+		log.WithField("stream", streamName).Infof("closing stream")
 		stream.Close()
 	}
 }

@@ -13,7 +13,6 @@ import (
 	"gopkg.in/ini.v1"
 	"io"
 	"io/ioutil"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -25,7 +24,7 @@ var typeLengthRegex = regexp.MustCompile(`^([^,]*),?(.*)?`)
 var skipSections = regexp.MustCompile(`(record_format|DEFAULT|\w+\.\w)`)                      // only for parsing loglifes
 var streamRecordFormatSection = regexp.MustCompile(`^stream\.(?P<stream>.*)\.record_format$`) // only streams record format
 
-func parseConfig(src io.Reader) ConfigFile {
+func parseConfigINI(src io.Reader) ConfigFile {
 
 	data, err := ioutil.ReadAll(src)
 	if err != nil {
@@ -80,17 +79,6 @@ func parseConfig(src io.Reader) ConfigFile {
 		if !skipSections.MatchString(section) {
 			logfile := parseLogfileSection(cfg, section)
 			config.Logfiles = append(config.Logfiles, logfile)
-		}
-	}
-
-	gApp = config.App
-	setAppVer(config.AppVer)
-
-	if config.Hostname == "" {
-		var err error
-		config.Hostname, err = os.Hostname()
-		if err != nil {
-			log.Fatalf("Error getting hostname. %v", err)
 		}
 	}
 

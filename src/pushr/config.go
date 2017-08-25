@@ -12,6 +12,7 @@ import (
 	"context"
 	"os"
 	"regexp"
+	"strings"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -46,8 +47,8 @@ type Logfile struct {
 	RetryFileOpen      bool              `yaml:"retry_file_open" ini:"retry_file_open"`
 	FieldMappings      map[string]string `yaml:"field_mappings"`
 	BufferMultiLines   bool              `yaml:"buffer_multi_lines" ini:"buffer_multi_lines"`
-	FieldsOrder        []string
-	FieldsOrderStr     string `ini:"fields_order"`
+	FieldsOrder        []string          `yaml:"fields_order"`
+	FieldsOrderStr     string            `ini:"fields_order"`
 	LastTimestamp      time.Time
 	Regex              *regexp.Regexp
 	FrontSplitRegex    *regexp.Regexp
@@ -87,22 +88,50 @@ var defaultAttributes = []Attribute{
 }
 
 func (c *ConfigFile) GetStream(name string) (*StreamConfig, bool) {
-	for _, s := range c.Streams {
-		if s.StreamName == name {
-			return &s, true
+	for i := 0; i < len(c.Streams); i++ {
+		if c.Streams[i].StreamName == name {
+			return &c.Streams[i], true
 		}
 	}
 	return nil, false
 }
 
-func testParseConfig(configPath string) {
+func parseConfig(configPath string) ConfigFile {
 
 	configFile, err := os.Open(configPath)
 	if err != nil {
 		log.WithField("file", configPath).Fatalf(err.Error())
 	}
+	defer configFile.Close()
 
-	config := parseConfig(configFile)
+	var config ConfigFile
+	if strings.Contains(configPath, ".yaml") {
+		log.WithField("file", configPath).Infof("loading yaml config")
+		config = parseYamlConfig(configFile)
+	} else {
+		log.WithField("file", configPath).Infof("loading ini config")
+		config = parseConfigINI(configFile)
+	}
+
+	gApp = config.App
+	setAppVer(config.AppVer)
+
+	if config.Hostname == "" {
+		var err error
+		config.Hostname, err = os.Hostname()
+		if err != nil {
+			log.Fatalf("Error getting hostname. %v", err)
+		}
+	}
+
+	gHostname = config.Hostname
+
+	return config
+
+}
+
+func testParseConfig(configPath string) {
+	config := parseConfig(configPath)
 	log.Printf("%+v", config)
 }
 
@@ -117,7 +146,7 @@ func configureStreams(ctx context.Context, config ConfigFile) map[string]Streame
 		var stream Streamer
 		switch {
 		case conf.Type == "firehose":
-			log.WithField("stream", streamName).Info("streaming to firehose: %s", conf.Name)
+			log.WithField("stream", streamName).Infof("streaming to firehose: %s", conf.Name)
 			stream = NewFirehoseStream(ctx, conf.RecordFormat, config.AwsAccessKey,
 				config.AwsSecretAccessKey, config.AwsRegion, conf.Name)
 		case conf.Type == "csv":

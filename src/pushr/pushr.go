@@ -117,10 +117,8 @@ func MonitorFile(ctx context.Context, logfile Logfile) error {
 	// delim := regexp.MustCompile(`\d{4}/\d{2}/\d{2}\s\d{2}\:\d{2}\:\d{2}\.\d{3}\s`)
 	var t *tail.Tail
 	if logfile.FrontSplitRegexStr != "" {
-		infof("front_line_regex: true")
 		t = tail.NewTailWithCtx(ctx, logfile.Filename, gFollow, logfile.RetryFileOpen, logfile.FrontSplitRegex, true)
 	} else {
-		infof("front_line_regex: false")
 		t = tail.NewTailWithCtx(ctx, logfile.Filename, gFollow, logfile.RetryFileOpen, nil, false)
 	}
 

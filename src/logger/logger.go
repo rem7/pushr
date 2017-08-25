@@ -33,9 +33,15 @@ func (f *CSVFormatter) Format(entry *log.Entry) ([]byte, error) {
 		stream = a
 	}
 
+	logfileName := ""
+	if a, ok := entry.Data["logfile_name"].(string); ok {
+		logfileName = a
+	}
+
 	record := []string{
 		entry.Time.Format(ISO_8601),
 		entry.Level.String(),
+		logfileName,
 		file,
 		stream,
 		entry.Message,

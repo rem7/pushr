@@ -72,5 +72,8 @@ func parseYamlConfig(src io.Reader) ConfigFile {
 		}
 	}
 
+	gApp = config.App
+	setAppVer(config.AppVer)
+
 	return config
 }

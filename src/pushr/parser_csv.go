@@ -11,6 +11,7 @@ package main
 import (
 	"bytes"
 	"encoding/csv"
+	"log"
 	"strings"
 	"time"
 )
@@ -64,6 +65,7 @@ func (p *CSVParser) Parse(line string) (map[string]string, error) {
 
 	record, err := r.Read()
 	if err != nil {
+		log.Printf(err.Error())
 		return result, err
 	}
 

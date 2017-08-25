@@ -187,6 +187,10 @@ loop:
 
 		select {
 		case <-time.After(SLEEP_TIMEOUT):
+			if t.lineStartSplit && accum.Len() > 0 {
+				t.LineChan <- accum.String()
+				accum.Reset()
+			}
 			break
 		case event := <-watcher.Events:
 			if event.Op&fsnotify.Rename == fsnotify.Rename {

@@ -16,7 +16,7 @@ files:
   - name: my-app-json
     file: /var/log/node.out.log
     parse_mode: json
-    time_format: 2006-01-02T15:04:05.000Z
+    time_format: 2006-01-02T15:04:05.999Z
     stream: app-log
     buffer_multi_lines: false 
     field_mappings:
