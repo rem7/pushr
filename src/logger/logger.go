@@ -54,13 +54,3 @@ func (f *CSVFormatter) Format(entry *log.Entry) ([]byte, error) {
 
 	return buf.Bytes(), nil
 }
-
-// func main() {
-// 	log.SetLevel(log.WarnLevel)
-// 	log.SetFormatter(new(CSVFormatter))
-// 	log.WithFields(log.Fields{"field": "fdsa"}).Info("sup info")
-// 	log.WithFields(log.Fields{"field": "fdsa"}).Warn("watchout")
-// 	log.WithFields(log.Fields{"field": "fdsa"}).Error("This is error!")
-// 	log.WithFields(log.Fields{"field": "fdsa"}).Fatal("NOO")
-// 	log.Printf("something?")
-// }
