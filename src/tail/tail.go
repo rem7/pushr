@@ -40,6 +40,7 @@ type Tail struct {
 	context        context.Context
 	retryFileOpen  bool // keep trying to re-open the file, helpful when the file doesn't exist yet
 	lineStartSplit bool // logic for handling begining of line split (splunk like, by timestamp)
+	delim          *regexp.Regexp
 }
 
 func NewTail(path string) *Tail {
@@ -54,6 +55,7 @@ func NewTail(path string) *Tail {
 		context:        ctx,
 		retryFileOpen:  true,
 		lineStartSplit: false,
+		delim:          gDelim,
 	}
 
 	t.Start()
@@ -69,8 +71,9 @@ func NewTailWithCtx(ctx context.Context, path string, follow, retryFileOpen bool
 
 	ctx, cancel := context.WithCancel(ctx)
 
+	d := gDelim
 	if delim != nil {
-		gDelim = delim
+		d = delim
 	}
 
 	t := &Tail{
@@ -81,6 +84,7 @@ func NewTailWithCtx(ctx context.Context, path string, follow, retryFileOpen bool
 		context:        ctx,
 		retryFileOpen:  retryFileOpen,
 		lineStartSplit: lineStartSplit,
+		delim:          d,
 	}
 
 	t.Start()
@@ -149,9 +153,9 @@ loop:
 	for {
 
 		if t.lineStartSplit {
-			readFrontSplit(ctx, t.LineChan, r, accum)
+			readFrontSplit(ctx, t.delim, t.LineChan, r, accum)
 		} else {
-			buffer := read(ctx, r, accum)
+			buffer := read(ctx, t.delim, r, accum)
 			reader := bufio.NewReader(buffer)
 			for {
 
@@ -217,7 +221,7 @@ loop:
 
 }
 
-func read(ctx context.Context, f io.Reader, accum *bytes.Buffer) io.Reader {
+func read(ctx context.Context, delim *regexp.Regexp, f io.Reader, accum *bytes.Buffer) io.Reader {
 
 	r, w := io.Pipe()
 	buffer_size := 1048576 // 1MB
@@ -242,7 +246,7 @@ func read(ctx context.Context, f io.Reader, accum *bytes.Buffer) io.Reader {
 			}
 
 			slice := buffer[:n]
-			locs := gDelim.FindAllSubmatchIndex(slice, -1)
+			locs := delim.FindAllSubmatchIndex(slice, -1)
 
 			if len(locs) == 0 {
 				accum.Write(slice)
@@ -268,7 +272,7 @@ func read(ctx context.Context, f io.Reader, accum *bytes.Buffer) io.Reader {
 	return r
 }
 
-func readFrontSplit(ctx context.Context, lineChan chan string, f io.Reader, accum *bytes.Buffer) {
+func readFrontSplit(ctx context.Context, delim *regexp.Regexp, lineChan chan string, f io.Reader, accum *bytes.Buffer) {
 
 	buffer_size := 1048576 // 1MB
 
@@ -291,7 +295,7 @@ func readFrontSplit(ctx context.Context, lineChan chan string, f io.Reader, accu
 		}
 
 		slice := buffer[:n]
-		locs := gDelim.FindAllSubmatchIndex(slice, -1)
+		locs := delim.FindAllSubmatchIndex(slice, -1)
 
 		if len(locs) == 0 {
 			accum.Write(slice)

@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"logger"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -71,6 +72,7 @@ var (
 
 func init() {
 	log.SetFormatter(new(logger.CSVFormatter))
+	log.SetOutput(os.Stdout)
 	gUpdateCacheChan = make(chan UpdateMessage, 1028)
 	gAppVerMutex = new(sync.RWMutex)
 }
