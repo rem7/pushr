@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"logger"
 	"os"
+	"plugin"
 	"regexp"
 	"strconv"
 	"strings"
@@ -77,6 +78,31 @@ func init() {
 	gAppVerMutex = new(sync.RWMutex)
 }
 
+func LoadParserPlugin(pluginPath string) Parser {
+
+	plug, err := plugin.Open(pluginPath)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	symParser, err := plug.Lookup("Parser")
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	var parser Parser
+	parser, ok := symParser.(Parser)
+	if !ok {
+		fmt.Println("unexpected type from module symbol")
+		os.Exit(1)
+	}
+
+	return parser
+
+}
+
 func MonitorFile(ctx context.Context, logfile Logfile) error {
 
 	infof, warnf, errorf, fatalf := LogFuncs(logfile)
@@ -112,6 +138,8 @@ func MonitorFile(ctx context.Context, logfile Logfile) error {
 	case "date_keyvalue":
 		parser = NewDateKVParser(gApp, appVer(), logfile.Filename, gHostname, logfile.FieldMappings, stream.RecordFormat())
 		break
+	case "plugin":
+		parser = LoadParserPlugin(logfile.ParserPluginPath)
 	default:
 		fatalf("%s parse_mode not supported", logfile.ParseMode)
 	}
