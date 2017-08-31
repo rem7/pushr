@@ -133,12 +133,10 @@ func start(configPath string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	handleSignal(cancel)
 
-	go TailServer(config)
-
 	config := parseConfig(configPath)
 	gAllStreams = configureStreams(ctx, config)
 
-	log.Printf("%+v", config)
+	go TailServer(config)
 
 	// TODO: Handle different type of streams correctly
 	// stream = NewS3Stream(config.AwsAccessKey,

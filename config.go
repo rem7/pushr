@@ -50,6 +50,7 @@ type Logfile struct {
 	BufferMultiLines   bool              `yaml:"buffer_multi_lines" ini:"buffer_multi_lines" json:"buffer_multi_lines,omitempty"`
 	FieldsOrder        []string          `yaml:"fields_order" json:"fields_order,omitempty"`
 	FieldsOrderStr     string            `ini:"fields_order" json:"-"`
+	ParserPluginPath   string            `yaml:"parser_plugin_path"`
 	LastTimestamp      time.Time         `json:"-"`
 	Regex              *regexp.Regexp    `json:"-"`
 	FrontSplitRegex    *regexp.Regexp    `json:"-"`
