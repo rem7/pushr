@@ -44,6 +44,7 @@ var (
 	gTimeThreshold   time.Time
 	gAllStreams      = map[string]Streamer{}
 	gVerboseLevel    = 3
+	gRecords         chan *Record
 
 	appVerRegex      = regexp.MustCompile(`^----\sapp_ver\:\s(?P<app_ver>.*)$`)
 	chromeVersion    = regexp.MustCompile(`Chrome\/([^ ;\)]*)`)

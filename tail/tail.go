@@ -36,11 +36,12 @@ type Tail struct {
 	Filename       string
 	LineChan       chan string
 	Cancel         context.CancelFunc
-	follow         bool
-	context        context.Context
-	retryFileOpen  bool // keep trying to re-open the file, helpful when the file doesn't exist yet
+	Follow         bool
+	Context        context.Context
+	RetryFileOpen  bool // keep trying to re-open the file, helpful when the file doesn't exist yet
 	lineStartSplit bool // logic for handling begining of line split (splunk like, by timestamp)
 	delim          *regexp.Regexp
+	SeekToEnd      bool
 }
 
 func NewTail(path string) *Tail {
@@ -51,20 +52,19 @@ func NewTail(path string) *Tail {
 		Filename:       path,
 		LineChan:       make(chan string),
 		Cancel:         cancel,
-		follow:         true,
-		context:        ctx,
-		retryFileOpen:  true,
+		Follow:         true,
+		Context:        ctx,
+		RetryFileOpen:  true,
 		lineStartSplit: false,
 		delim:          gDelim,
+		SeekToEnd:      false,
 	}
-
-	t.Start()
 
 	return t
 }
 
 func (t *Tail) Start() {
-	go t.watchFile(t.context, t.Filename)
+	go t.watchFile(t.Context, t.Filename)
 }
 
 func NewTailWithCtx(ctx context.Context, path string, follow, retryFileOpen bool, delim *regexp.Regexp, lineStartSplit bool) *Tail {
@@ -80,11 +80,12 @@ func NewTailWithCtx(ctx context.Context, path string, follow, retryFileOpen bool
 		Filename:       path,
 		LineChan:       make(chan string),
 		Cancel:         cancel,
-		follow:         follow,
-		context:        ctx,
-		retryFileOpen:  retryFileOpen,
+		Follow:         follow,
+		Context:        ctx,
+		RetryFileOpen:  retryFileOpen,
 		lineStartSplit: lineStartSplit,
 		delim:          d,
+		SeekToEnd:      false,
 	}
 
 	t.Start()
@@ -102,9 +103,9 @@ func (t *Tail) openFile(path string) (*os.File, error) {
 	var err error
 	for {
 
-		if !t.retryFileOpen {
+		if !t.RetryFileOpen {
 			select {
-			case <-t.context.Done():
+			case <-t.Context.Done():
 				return nil, errors.New("Tail context cancelled.")
 			default:
 				break
@@ -116,6 +117,9 @@ func (t *Tail) openFile(path string) (*os.File, error) {
 			log.Infof("Unable to open. %s. Waiting 5 seconds and retrying", err.Error())
 			time.Sleep(time.Second * 5)
 		} else {
+			if finfo, err := os.Stat(path); err == nil && t.SeekToEnd {
+				f.Seek(finfo.Size(), 0)
+			}
 			break
 		}
 	}
@@ -158,7 +162,6 @@ loop:
 			buffer := read(ctx, t.delim, r, accum)
 			reader := bufio.NewReader(buffer)
 			for {
-
 				select {
 				case <-ctx.Done():
 					t.Close()
@@ -179,7 +182,7 @@ loop:
 				}
 
 				if err == io.EOF {
-					if !t.follow {
+					if !t.Follow {
 						t.Close()
 						return
 					}

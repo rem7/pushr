@@ -30,29 +30,29 @@ type ConfigFile struct {
 	AwsAccessKey       string    `yaml:"aws_access_key" ini:"aws_access_key"`
 	AwsSecretAccessKey string    `yaml:"aws_secret_access_key" ini:"aws_secret_access_key"`
 	AwsRegion          string    `yaml:"aws_region" ini:"aws_region"`
+	EC2Host            bool      `yaml:"ec2host"`
 	Hostname           string    `yaml:"hostname" ini:"hostname"`
 	Logfiles           []Logfile `yaml:"files"`
 	Streams            []StreamConfig
 }
 
 type Logfile struct {
-	Name               string            `yaml:"name"`
-	Filename           string            `yaml:"file" ini:"file"`
-	Directory          string            `yaml:"directory" ini:"directory"`
-	StreamName         string            `yaml:"stream" ini:"stream"`
-	TimeFormat         string            `yaml:"time_format" ini:"time_format"`
-	LineRegex          string            `yaml:"line_regex" ini:"line_regex"`
-	FrontSplitRegexStr string            `yaml:"front_split_regex" ini:"front_split_regex"` // option used to split at the begining of the line instead
-	ParseMode          string            `yaml:"parse_mode" ini:"parse_mode"`
-	RetryFileOpen      bool              `yaml:"retry_file_open" ini:"retry_file_open"`
-	FieldMappings      map[string]string `yaml:"field_mappings"`
-	BufferMultiLines   bool              `yaml:"buffer_multi_lines" ini:"buffer_multi_lines"`
-	FieldsOrder        []string          `yaml:"fields_order"`
-	FieldsOrderStr     string            `ini:"fields_order"`
-	ParserPluginPath   string            `yaml:"parser_plugin_path"`
-	LastTimestamp      time.Time
-	Regex              *regexp.Regexp
-	FrontSplitRegex    *regexp.Regexp
+	Name               string            `yaml:"name" json:"name"`
+	Filename           string            `yaml:"file" ini:"file" json:"file"`
+	Directory          string            `yaml:"directory" ini:"directory" json:"directory"`
+	StreamName         string            `yaml:"stream" ini:"stream" json:"stream"`
+	TimeFormat         string            `yaml:"time_format" ini:"time_format" json:"time_format"`
+	LineRegex          string            `yaml:"line_regex" ini:"line_regex"  json:"line_regex"`
+	FrontSplitRegexStr string            `yaml:"front_split_regex" ini:"front_split_regex"  json:"front_split_regex,omitempty"` // option used to split at the begining of the line instead
+	ParseMode          string            `yaml:"parse_mode" ini:"parse_mode"json:"parse_mode"`
+	RetryFileOpen      bool              `yaml:"retry_file_open" ini:"retry_file_open" json:"retry_file_open,omitempty"`
+	FieldMappings      map[string]string `yaml:"field_mappings" json:"field_mappings,omitempty"`
+	BufferMultiLines   bool              `yaml:"buffer_multi_lines" ini:"buffer_multi_lines" json:"buffer_multi_lines,omitempty"`
+	FieldsOrder        []string          `yaml:"fields_order" json:"fields_order,omitempty"`
+	FieldsOrderStr     string            `ini:"fields_order" json:"-"`
+	LastTimestamp      time.Time         `json:"-"`
+	Regex              *regexp.Regexp    `json:"-"`
+	FrontSplitRegex    *regexp.Regexp    `json:"-"`
 }
 
 type StreamConfig struct {
