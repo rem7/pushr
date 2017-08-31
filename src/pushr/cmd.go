@@ -23,7 +23,7 @@ import (
 func main() {
 
 	// defer profile.Start(profile.CPUProfile).Stop()
-
+	log.Printf("main")
 	var configPath string
 
 	app := cli.NewApp()
@@ -129,12 +129,14 @@ func main() {
 }
 
 func start(configPath string) {
-
+	log.Printf("start")
 	ctx, cancel := context.WithCancel(context.Background())
 	handleSignal(cancel)
 
 	config := parseConfig(configPath)
 	gAllStreams = configureStreams(ctx, config)
+
+	log.Printf("%+v", config)
 
 	// TODO: Handle different type of streams correctly
 	// stream = NewS3Stream(config.AwsAccessKey,

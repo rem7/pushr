@@ -80,6 +80,8 @@ func init() {
 
 func LoadParserPlugin(pluginPath string) Parser {
 
+	log.Printf("loading plugin:%s", pluginPath)
+
 	plug, err := plugin.Open(pluginPath)
 	if err != nil {
 		fmt.Println(err)
@@ -139,6 +141,7 @@ func MonitorFile(ctx context.Context, logfile Logfile) error {
 		parser = NewDateKVParser(gApp, appVer(), logfile.Filename, gHostname, logfile.FieldMappings, stream.RecordFormat())
 		break
 	case "plugin":
+		log.Printf("logfile.ParserPluginPath: %s", logfile.ParserPluginPath)
 		parser = LoadParserPlugin(logfile.ParserPluginPath)
 	default:
 		fatalf("%s parse_mode not supported", logfile.ParseMode)
