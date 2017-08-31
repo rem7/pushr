@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
  */
-package webserver
+package main
 
 import (
 	"bytes"
@@ -20,12 +20,12 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
-	"tail"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/rem7/pushr/tail"
 )
 
 var gAddresses []string

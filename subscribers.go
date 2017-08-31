@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
  *
  */
-package webserver
+package main
 
 import (
 	log "github.com/Sirupsen/logrus"

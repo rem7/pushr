@@ -133,6 +133,8 @@ func start(configPath string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	handleSignal(cancel)
 
+	go TailServer(config)
+
 	config := parseConfig(configPath)
 	gAllStreams = configureStreams(ctx, config)
 

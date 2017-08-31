@@ -14,6 +14,7 @@ import (
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"gopkg.in/fsnotify.v1"
+	"net"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -242,4 +243,43 @@ func escapeRegex() {
 	s, _ := reader.ReadString('\n')
 	r := strconv.QuoteToASCII(s[:len(s)-1])
 	fmt.Printf("\nInsert into Json config:\n%v\n", r)
+}
+
+func isLocalIP(ip string) bool {
+	for _, local_ip := range gAddresses {
+		if local_ip == ip {
+			return true
+		}
+	}
+	return false
+}
+
+func getIPs() []string {
+
+	addresses := []string{}
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return addresses
+	}
+
+	for _, i := range ifaces {
+		addrs, err := i.Addrs()
+		if err != nil {
+			return addresses
+		}
+
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			address := fmt.Sprintf("%s", ip)
+			addresses = append(addresses, address)
+			// process IP address
+		}
+	}
+	return addresses
 }
