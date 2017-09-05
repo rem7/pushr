@@ -245,8 +245,8 @@ func escapeRegex() {
 	fmt.Printf("\nInsert into Json config:\n%v\n", r)
 }
 
-func isLocalIP(ip string) bool {
-	for _, local_ip := range gAddresses {
+func isLocalIP(ip string, addresses []string) bool {
+	for _, local_ip := range addresses {
 		if local_ip == ip {
 			return true
 		}

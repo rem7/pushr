@@ -35,6 +35,7 @@ var (
 	gHostname        = "HOSTNAME"
 	gFollow          = true
 	gScanDir         = true
+	gEC2host         = true
 	gStopChans       = []chan bool{}
 	gApp             string
 	gAppVer          string

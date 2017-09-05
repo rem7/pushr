@@ -34,6 +34,7 @@ type ConfigFile struct {
 	Hostname           string    `yaml:"hostname" ini:"hostname"`
 	Logfiles           []Logfile `yaml:"files"`
 	Streams            []StreamConfig
+	Server             LiveServerConfig `yaml:"live_server"`
 }
 
 type Logfile struct {
@@ -64,6 +65,12 @@ type StreamConfig struct {
 	StreamApiKey       string      `yaml:"stream_api_key" ini:"stream_api_key"`
 	RecordFormatString string      `ini:"record_format"`
 	RecordFormat       []Attribute `yaml:"record_format"`
+}
+
+type LiveServerConfig struct {
+	Enabled bool     `yaml:"enabled"`
+	Port    int      `yaml:"port"`
+	ApiKeys []string `yaml:"api_keys"`
 }
 
 var defaultAttributes = []Attribute{
@@ -127,6 +134,7 @@ func parseConfig(configPath string) ConfigFile {
 	}
 
 	gHostname = config.Hostname
+	config.EC2Host = gEC2host
 
 	return config
 

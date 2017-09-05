@@ -22,13 +22,17 @@ import (
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/gorilla/mux"
+	"github.com/rem7/pushr/middleware"
 	"github.com/rem7/pushr/tail"
+	"github.com/urfave/negroni"
 )
 
-var gAddresses []string
+var gPort string
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
@@ -37,23 +41,22 @@ var upgrader = websocket.Upgrader{
 
 func TailServer(config ConfigFile) {
 
-	port := ":8888"
-	gAddresses = getIPs()
-	log.Printf("starting web server: %s", port)
-
-	fs := http.FileServer(http.Dir("static"))
-	http.Handle("/", fs)
-
+	gPort = fmt.Sprintf(":%d", config.Server.Port)
+	log.Printf("starting web server: %s", gPort)
 	tailHandler := NewTailHandler(config)
 
-	http.Handle("/tail", tailHandler)
-	http.Handle("/list_files", &ListFilesHandler{config})
+	router := mux.NewRouter()
+	router.Handle("/1/tail", tailHandler)
+	router.Handle("/1/list_files", &ListFilesHandler{config})
+	router.HandleFunc("/1/subscribe", subscribeRaw)
+	router.HandleFunc("/1/subscribe_parsed", subscribeParsed)
 
-	http.HandleFunc("/subscribe", subscribeRaw)
-	http.HandleFunc("/subscribe_parsed", subscribeParsed)
+	n := negroni.New(negroni.NewRecovery(), negroni.NewStatic(http.Dir("static/")))
+	authMiddleware := middleware.NewApiKeyMiddleware(config.Server.ApiKeys)
+	n.Use(authMiddleware)
+	n.UseHandler(router)
+	http.ListenAndServe(gPort, n)
 
-	log.Fatal(http.ListenAndServe(port, nil))
-	log.Printf("server stopped")
 }
 
 type Msg struct {
@@ -78,22 +81,30 @@ type TailHandler struct {
 
 func NewTailHandler(config ConfigFile) *TailHandler {
 
-	// sess := &session.Session{}
-	sess := session.New(nil)
-
 	instanceId := ""
+	var ec2svc *ec2.EC2
+	var asgsvc *autoscaling.AutoScaling
 	if config.EC2Host {
+
+		region := getRegion()
+		sess := session.Must(session.NewSession(&aws.Config{
+			Region: aws.String(region),
+		}))
+
 		var err error
 		instanceId, err = getInstanceId()
 		if err != nil {
 			log.Printf("TailHandler could not get instanceId")
 		}
 		log.Printf("instanceId: %s", instanceId)
+
+		ec2svc = ec2.New(sess)
+		asgsvc = autoscaling.New(sess)
 	}
 
 	return &TailHandler{
-		ec2:        ec2.New(sess),
-		asg:        autoscaling.New(sess),
+		ec2:        ec2svc,
+		asg:        asgsvc,
 		instanceId: instanceId,
 	}
 }
@@ -114,23 +125,36 @@ func (t *TailHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		return
 	}()
 
+	servers := []string{}
+
 	var id uint64 = 0
 	lines := make(chan Event)
 	parsed := false
+	asg := false
 	filename := req.URL.Query().Get("filename")
-	parsedValue := req.URL.Query().Get("parsed")
-	if parsedValue != "" {
+	if parsedParam := req.URL.Query().Get("parsed"); parsedParam != "" {
 		parsed = true
 	}
-
-	if t.instanceId != "" {
-		log.Printf("getting instance IPs from ASG")
-		ips := t.getAutoScaleGroupIPs()
-		log.Printf("asg ips:\n%+v", ips)
+	if asgParam := req.URL.Query().Get("asg"); asgParam != "" {
+		asg = true
+		log.Printf("asg true & instanceId: %s", t.instanceId)
 	}
 
-	servers := []string{"127.0.0.1"}
-	// servers := []string{"10.179.0.11", "10.179.1.206"}
+	values := req.URL.Query()
+	if server_args, ok := values["server"]; ok {
+		for i := 0; i < len(server_args); i++ {
+			servers = append(servers, server_args[i])
+		}
+	}
+
+	if t.instanceId != "" && asg {
+		log.Printf("getting instance IPs from ASG")
+		ips := t.getAutoScaleGroupIPs()
+		log.Printf("asg ips: %+v", ips)
+		servers = append(servers, ips...)
+	}
+
+	log.Printf("subscribing to servers: %+v", servers)
 	for _, serverIP := range servers {
 		go connect(req.Context(), serverIP, filename, parsed, lines)
 	}
@@ -174,11 +198,12 @@ func (t *TailHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 			break
 		}
 	}
+	log.Printf("webclient disconnected")
 }
 
-func (t *TailHandler) getAutoScaleGroupIPs() []*string {
+func (t *TailHandler) getAutoScaleGroupIPs() []string {
 
-	instanceIps := []*string{}
+	instanceIps := []string{}
 	group, err := t.getAutoScaleGroup(t.instanceId)
 	if err != nil {
 		log.Printf(err.Error())
@@ -204,7 +229,7 @@ func (t *TailHandler) getAutoScaleGroupIPs() []*string {
 	for _, reservation := range ec2resp.Reservations {
 		for _, instance := range reservation.Instances {
 			if *instance.State.Name == "running" {
-				instanceIps = append(instanceIps, instance.PrivateIpAddress)
+				instanceIps = append(instanceIps, *instance.PrivateIpAddress)
 			}
 		}
 	}
@@ -327,11 +352,11 @@ func connect(ctx context.Context, serverIP, filename string, parsed bool, lines 
 	}
 
 	log.Printf("subscribing to %s", serverIP)
-	url := fmt.Sprintf("ws://%s:8888/subscribe%s?filename=%s", serverIP, parsedStr, filename)
+	url := fmt.Sprintf("ws://%s%s/1/subscribe%s?filename=%s", serverIP, gPort, parsedStr, filename)
 
 	c, _, err := websocket.DefaultDialer.Dial(url, nil)
 	if err != nil {
-		log.Printf("dial:", err)
+		log.Printf("error connecting to websocket %s: %s", serverIP, err.Error())
 		return
 	}
 
@@ -350,7 +375,7 @@ func connect(ctx context.Context, serverIP, filename string, parsed bool, lines 
 		lines <- Event{ServerIP: serverIP, Line: string(message)}
 	}
 
-	log.Printf("unsubscribing")
+	log.Printf("websocket unsubscribing")
 
 }
 
@@ -430,4 +455,16 @@ func getInstanceId() (string, error) {
 	data, err := ioutil.ReadAll(resp.Body)
 
 	return string(data), err
+}
+
+func getRegion() string {
+
+	s := session.Must(session.NewSession())
+	ec2Meta := ec2metadata.New(s)
+	region, err := ec2Meta.Region()
+	if err != nil {
+		log.Printf("failed to get region")
+	}
+
+	return region
 }

@@ -59,6 +59,11 @@ func main() {
 			Usage:       "--scan-dir <true|false>",
 			Destination: &gScanDir,
 		},
+		cli.BoolFlag{
+			Name:        "ec2host",
+			Usage:       "--ec2host <true|false>",
+			Destination: &gEC2host,
+		},
 		cli.IntFlag{
 			Name:  "limit-days-ago",
 			Usage: "--limit-days-ago <number of days>",
@@ -136,7 +141,10 @@ func start(configPath string) {
 	config := parseConfig(configPath)
 	gAllStreams = configureStreams(ctx, config)
 
-	go TailServer(config)
+	if config.Server.Enabled {
+		log.Printf("live server enabled")
+		go TailServer(config)
+	}
 
 	// TODO: Handle different type of streams correctly
 	// stream = NewS3Stream(config.AwsAccessKey,
