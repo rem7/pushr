@@ -49,15 +49,15 @@ func TailServer(config ConfigFile) {
 
 	router := mux.NewRouter()
 	api := mux.NewRouter()
-	api.Handle("/tail", tailHandler)
-	api.Handle("/list_files", &ListFilesHandler{config})
-	api.HandleFunc("/subscribe", subscribeRaw)
-	api.HandleFunc("/subscribe_parsed", subscribeParsed)
+	api.Handle("/1/tail", tailHandler)
+	api.Handle("/1/list_files", &ListFilesHandler{config})
+	api.HandleFunc("/1/subscribe", subscribeRaw)
+	api.HandleFunc("/1/subscribe_parsed", subscribeParsed)
 
 	common := negroni.New()
 	common.Use(negroni.NewRecovery())
 
-	router.PathPrefix("/1").Handler(common.With(
+	router.PathPrefix("/1/").Handler(common.With(
 		authMiddleware,
 		negroni.Wrap(api),
 	))
@@ -363,7 +363,7 @@ func connect(ctx context.Context, serverIP, apiKeyParam, filename string, parsed
 	}
 
 	log.Printf("subscribing to %s", serverIP)
-	url := fmt.Sprintf("ws://%s%s/1/subscribe%s?apikkey=%s&filename=%s", serverIP, gPort, parsedStr, apiKeyParam, filename)
+	url := fmt.Sprintf("ws://%s%s/1/subscribe%s?apikey=%s&filename=%s", serverIP, gPort, parsedStr, apiKeyParam, filename)
 
 	c, _, err := websocket.DefaultDialer.Dial(url, nil)
 	if err != nil {
