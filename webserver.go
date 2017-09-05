@@ -45,15 +45,25 @@ func TailServer(config ConfigFile) {
 	log.Printf("starting web server: %s", gPort)
 	tailHandler := NewTailHandler(config)
 
-	router := mux.NewRouter()
-	router.Handle("/1/tail", tailHandler)
-	router.Handle("/1/list_files", &ListFilesHandler{config})
-	router.HandleFunc("/1/subscribe", subscribeRaw)
-	router.HandleFunc("/1/subscribe_parsed", subscribeParsed)
-
-	n := negroni.New(negroni.NewRecovery(), negroni.NewStatic(http.Dir("static/")))
 	authMiddleware := middleware.NewApiKeyMiddleware(config.Server.ApiKeys)
-	n.Use(authMiddleware)
+
+	router := mux.NewRouter()
+	api := mux.NewRouter()
+	api.Handle("/tail", tailHandler)
+	api.Handle("/list_files", &ListFilesHandler{config})
+	api.HandleFunc("/subscribe", subscribeRaw)
+	api.HandleFunc("/subscribe_parsed", subscribeParsed)
+
+	common := negroni.New()
+	common.Use(negroni.NewRecovery())
+
+	router.PathPrefix("/1").Handler(common.With(
+		authMiddleware,
+		negroni.Wrap(api),
+	))
+
+	n := negroni.New()
+	n.Use(negroni.NewStatic(http.Dir("static/")))
 	n.UseHandler(router)
 	http.ListenAndServe(gPort, n)
 
@@ -139,6 +149,7 @@ func (t *TailHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		asg = true
 		log.Printf("asg true & instanceId: %s", t.instanceId)
 	}
+	apiKeyParam := req.URL.Query().Get("apikey")
 
 	values := req.URL.Query()
 	if server_args, ok := values["server"]; ok {
@@ -156,7 +167,7 @@ func (t *TailHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 
 	log.Printf("subscribing to servers: %+v", servers)
 	for _, serverIP := range servers {
-		go connect(req.Context(), serverIP, filename, parsed, lines)
+		go connect(req.Context(), serverIP, apiKeyParam, filename, parsed, lines)
 	}
 
 	for {
@@ -344,7 +355,7 @@ func subscribeRaw(rw http.ResponseWriter, req *http.Request) {
 
 }
 
-func connect(ctx context.Context, serverIP, filename string, parsed bool, lines chan Event) {
+func connect(ctx context.Context, serverIP, apiKeyParam, filename string, parsed bool, lines chan Event) {
 
 	parsedStr := ""
 	if parsed {
@@ -352,7 +363,7 @@ func connect(ctx context.Context, serverIP, filename string, parsed bool, lines 
 	}
 
 	log.Printf("subscribing to %s", serverIP)
-	url := fmt.Sprintf("ws://%s%s/1/subscribe%s?filename=%s", serverIP, gPort, parsedStr, filename)
+	url := fmt.Sprintf("ws://%s%s/1/subscribe%s?apikkey=%s&filename=%s", serverIP, gPort, parsedStr, apiKeyParam, filename)
 
 	c, _, err := websocket.DefaultDialer.Dial(url, nil)
 	if err != nil {

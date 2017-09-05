@@ -51,9 +51,9 @@
 
 [[projects]]
   name = "github.com/urfave/negroni"
+  branch = "master"
   packages = ["."]
-  revision = "fde5e16d32adc7ad637e9cd9ad21d4ebc6192535"
-  version = "v0.2.0"
+  revision = "c262547a5086067ebe455c81db5cc52eb298ac3c"
 
 [[projects]]
   branch = "master"

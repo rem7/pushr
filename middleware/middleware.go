@@ -24,6 +24,10 @@ func (a *ApiKeyMiddleware) ServeHTTP(rw http.ResponseWriter, req *http.Request, 
 
 	apikey := req.Header.Get("X-Pushr-ApiKey")
 	if apikey == "" {
+		apikey = req.URL.Query().Get("apikey")
+	}
+
+	if apikey == "" {
 		rw.WriteHeader(http.StatusBadRequest)
 		http.Error(rw, "api key missing", http.StatusBadRequest)
 		return
