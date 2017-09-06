@@ -140,7 +140,6 @@ func MonitorFile(ctx context.Context, logfile Logfile) error {
 	var streamed_lines_ctr uint64 = 0
 	var lines_ctr uint64 = 0
 	bufferMultiLines := logfile.BufferMultiLines
-	infof("tail start")
 
 LOOP:
 	for {
