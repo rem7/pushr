@@ -93,8 +93,8 @@ func NewTailWithCtx(ctx context.Context, path string, follow, retryFileOpen bool
 }
 
 func (t *Tail) Close() {
-	close(t.LineChan)
 	t.Cancel()
+	close(t.LineChan)
 }
 
 func (t *Tail) openFile(path string) (*os.File, error) {
@@ -164,7 +164,6 @@ loop:
 			for {
 				select {
 				case <-ctx.Done():
-					t.Close()
 					return
 				default:
 					break
@@ -217,11 +216,9 @@ loop:
 				t.LineChan <- accum.String()
 				accum.Reset()
 			}
-			t.Close()
 			break loop
 		}
 	}
-
 }
 
 func read(ctx context.Context, delim *regexp.Regexp, f io.Reader, accum *bytes.Buffer) io.Reader {

@@ -11,7 +11,6 @@ package main
 import (
 	"context"
 	"encoding/csv"
-	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"io"
 	"os"
@@ -85,7 +84,6 @@ func handleSignal(cancel context.CancelFunc) {
 		syscall.SIGQUIT)
 	go func() {
 		<-c
-		fmt.Printf("\ninterrupt-signal\n")
 		cancel()
 	}()
 
