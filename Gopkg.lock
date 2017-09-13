@@ -50,8 +50,14 @@
   version = "0.2.2"
 
 [[projects]]
-  name = "github.com/urfave/negroni"
+  name = "github.com/rs/cors"
+  packages = ["."]
+  revision = "7af7a1e09ba336d2ea14b1ce73bf693c6837dbf6"
+  version = "v1.2"
+
+[[projects]]
   branch = "master"
+  name = "github.com/urfave/negroni"
   packages = ["."]
   revision = "c262547a5086067ebe455c81db5cc52eb298ac3c"
 
@@ -88,6 +94,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "d6ccc18535306634676895ac393435902ab300c05980742e3e0a91ac51bf902e"
+  inputs-digest = "a2f4718c02c0547e79035abb21083b96db48b458ba70c6458efa28bd295dd190"
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -37,6 +37,9 @@ var gPort string
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
 }
 
 func TailServer(config ConfigFile) {
@@ -47,24 +50,16 @@ func TailServer(config ConfigFile) {
 
 	authMiddleware := middleware.NewApiKeyMiddleware(config.Server.ApiKeys)
 
-	router := mux.NewRouter()
 	api := mux.NewRouter()
 	api.Handle("/1/tail", tailHandler)
 	api.Handle("/1/list_files", &ListFilesHandler{config})
 	api.HandleFunc("/1/subscribe", subscribeRaw)
 	api.HandleFunc("/1/subscribe_parsed", subscribeParsed)
 
-	common := negroni.New()
-	common.Use(negroni.NewRecovery())
-
-	router.PathPrefix("/1/").Handler(common.With(
-		authMiddleware,
-		negroni.Wrap(api),
-	))
-
 	n := negroni.New()
-	n.Use(negroni.NewStatic(http.Dir("static/")))
-	n.UseHandler(router)
+	n.Use(&middleware.Cors{})
+	n.Use(authMiddleware)
+	n.UseHandler(api)
 	http.ListenAndServe(gPort, n)
 
 }
@@ -123,6 +118,7 @@ func (t *TailHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 
 	conn, err := upgrader.Upgrade(rw, req, nil)
 	if err != nil {
+		log.Printf("Websocket Upgrade error:\n%s\n", err.Error())
 		http.Error(rw, "Websockets unsupported!", http.StatusInternalServerError)
 		return
 	}
@@ -399,9 +395,6 @@ func liveHandler(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	log.Printf("user connected to log")
-	rw.Header().Set("Cache-Control", "no-cache")
-	rw.Header().Set("Access-Control-Allow-Origin", "*")
-
 	fmt.Fprintf(rw, "%s", html)
 
 }
@@ -416,9 +409,6 @@ func scriptHandler(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	rw.Header().Set("Cache-Control", "no-cache")
-	rw.Header().Set("Access-Control-Allow-Origin", "*")
-
 	fmt.Fprintf(rw, "%s", html)
 
 }
@@ -428,11 +418,6 @@ type ListFilesHandler struct {
 }
 
 func (l *ListFilesHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	rw.Header().Add("Cache-Control", "no-cache, no-store, must-revalidate")
-	rw.Header().Add("Access-Control-Allow-Origin", "*")
-	rw.Header().Add("Access-Control-Allow-Methods", "*")
-	rw.Header().Add("Access-Control-Allow-Headers", "Content-Type")
-	rw.Header().Add("Access-Control-Max-Age", "3600")
 
 	resp := struct {
 		FileList []Logfile `json:"file_list"`
@@ -446,6 +431,8 @@ func (l *ListFilesHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) 
 		http.Error(rw, "json encoding failed", http.StatusInternalServerError)
 		return
 	}
+
+	rw.Header().Set("Content-Type", "application/json")
 	fmt.Fprint(rw, w.String())
 }
 

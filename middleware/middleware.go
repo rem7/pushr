@@ -12,6 +12,17 @@ import (
 	"net/http"
 )
 
+type Cors struct{}
+
+func (c *Cors) ServeHTTP(rw http.ResponseWriter, req *http.Request, next http.HandlerFunc) {
+	rw.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	rw.Header().Set("Access-Control-Allow-Origin", "*")
+	rw.Header().Set("Access-Control-Allow-Methods", "*")
+	rw.Header().Set("Access-Control-Allow-Headers", "*")
+	rw.Header().Set("Access-Control-Max-Age", "3600")
+	next(rw, req)
+}
+
 func NewApiKeyMiddleware(apiKeys []string) *ApiKeyMiddleware {
 	return &ApiKeyMiddleware{apiKeys}
 }
@@ -32,12 +43,17 @@ func (a *ApiKeyMiddleware) ServeHTTP(rw http.ResponseWriter, req *http.Request, 
 		http.Error(rw, "api key missing", http.StatusBadRequest)
 		return
 	}
-
+	valid := false
 	for _, key := range a.apiKeys {
 		if key == apikey {
-			next(rw, req)
-			return
+			valid = true
 		}
 	}
-	rw.WriteHeader(http.StatusForbidden)
+
+	if valid {
+		next(rw, req)
+	} else {
+		rw.WriteHeader(http.StatusForbidden)
+	}
+
 }
