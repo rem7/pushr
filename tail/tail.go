@@ -93,7 +93,6 @@ func NewTailWithCtx(ctx context.Context, path string, follow, retryFileOpen bool
 }
 
 func (t *Tail) Close() {
-	t.Cancel()
 	close(t.LineChan)
 }
 
@@ -153,7 +152,6 @@ func (t *Tail) watchFile(parent context.Context, path string) {
 		log.Fatal(err)
 	}
 
-loop:
 	for {
 
 		if t.lineStartSplit {
@@ -216,7 +214,8 @@ loop:
 				t.LineChan <- accum.String()
 				accum.Reset()
 			}
-			break loop
+			t.Close()
+			return
 		}
 	}
 }
