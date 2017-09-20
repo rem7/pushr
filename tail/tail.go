@@ -93,6 +93,14 @@ func NewTailWithCtx(ctx context.Context, path string, follow, retryFileOpen bool
 }
 
 func (t *Tail) Close() {
+	defer func() {
+		// this is a hack. Need to figure out the order of closing the channel.
+		// sometimes its closing more than once
+		if r := recover(); r != nil {
+			log.WithField("file", t.Filename).
+				Warnf("Recovered in Tail.Close(): %s", r)
+		}
+	}()
 	close(t.LineChan)
 }
 
