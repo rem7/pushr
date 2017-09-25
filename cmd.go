@@ -23,7 +23,6 @@ import (
 func main() {
 
 	// defer profile.Start(profile.CPUProfile).Stop()
-	log.Printf("main")
 	var configPath string
 
 	app := cli.NewApp()
@@ -134,7 +133,7 @@ func main() {
 }
 
 func start(configPath string) {
-	log.Printf("start")
+
 	ctx, cancel := context.WithCancel(context.Background())
 	handleSignal(cancel)
 

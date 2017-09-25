@@ -208,7 +208,6 @@ func (t *Tail) watchFile(ctx context.Context, path string) {
 				log.WithField("file", path).Info("File renamed. Monitoring old fd for 5 minutes")
 				go t.watchFile(ctx, path)
 				time.AfterFunc(FD_TIMEOUT, func() {
-					log.WithField("file", path).Info("Closing old fd.1")
 					done <- true
 				})
 			}
@@ -217,7 +216,7 @@ func (t *Tail) watchFile(ctx context.Context, path string) {
 			log.WithField("file", path).Errorf("inotify error: %v", err)
 			break
 		case <-done:
-			log.WithField("file", path).Info("Closing old fd.2")
+			log.WithField("file", path).Info("Closing old fd")
 			return
 		case <-ctx.Done():
 			if accum.Len() > 0 {
