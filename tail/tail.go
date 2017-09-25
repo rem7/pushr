@@ -25,7 +25,7 @@ import (
 
 const (
 	SLEEP_TIMEOUT = time.Second * 1
-	FD_TIMEOUT    = time.Minute * 10
+	FD_TIMEOUT    = time.Minute * 5
 )
 
 var (
@@ -134,9 +134,7 @@ func (t *Tail) openFile(path string) (*os.File, error) {
 	return f, nil
 }
 
-func (t *Tail) watchFile(parent context.Context, path string) {
-
-	ctx, ctxCancel := context.WithCancel(parent)
+func (t *Tail) watchFile(ctx context.Context, path string) {
 
 	fileIn, err := t.openFile(path)
 	if err != nil {
@@ -159,6 +157,7 @@ func (t *Tail) watchFile(parent context.Context, path string) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	done := make(chan bool)
 
 	for {
 
@@ -206,17 +205,20 @@ func (t *Tail) watchFile(parent context.Context, path string) {
 			break
 		case event := <-watcher.Events:
 			if event.Op&fsnotify.Rename == fsnotify.Rename {
-				log.WithField("file", path).Info("File renamed. Monitoring old fd for 10 minutes")
+				log.WithField("file", path).Info("File renamed. Monitoring old fd for 5 minutes")
 				go t.watchFile(ctx, path)
 				time.AfterFunc(FD_TIMEOUT, func() {
-					log.WithField("file", path).Info("Closing old fd")
-					ctxCancel()
+					log.WithField("file", path).Info("Closing old fd.1")
+					done <- true
 				})
 			}
 			break
 		case err := <-watcher.Errors:
 			log.WithField("file", path).Errorf("inotify error: %v", err)
 			break
+		case <-done:
+			log.WithField("file", path).Info("Closing old fd.2")
+			return
 		case <-ctx.Done():
 			if accum.Len() > 0 {
 				t.LineChan <- accum.String()
