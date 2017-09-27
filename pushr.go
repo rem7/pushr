@@ -376,27 +376,38 @@ func parseBrowser(ua string) (string, string) {
 	if strings.Index(ua, "Chrome") != -1 {
 		browser = "chrome"
 		browserVer = regexGet(ua, chromeVersion)
+		return browser, browserVer
 	} else if strings.Index(ua, "CriOS") != -1 {
 		browser = "chrome"
 		browserVer = regexGet(ua, criVersion)
+		return browser, browserVer
 	} else if strings.Index(ua, "Firefox") != -1 {
 		browser = "firefox"
 		browserVer = regexGet(ua, firefoxVersion)
+		return browser, browserVer
 	} else if strings.Index(ua, "Android") != -1 {
 		browser = "android"
 		browserVer = regexGet(ua, androidVersion)
+		return browser, browserVer
 	} else if strings.Index(ua, "Safari") != -1 {
 		browser = "safari"
 		browserVer = regexGet(ua, safariVersion)
+		return browser, browserVer
 	} else if strings.Index(ua, "Trident") != -1 {
 		browser = "ie"
 		browserVer = regexGet(ua, ieVersion)
+		return browser, browserVer
 	} else if strings.Index(ua, "MSIE") != -1 {
 		browser = "ie"
 		browserVer = regexGet(ua, msieVersion)
+		return browser, browserVer
 	} else if strings.Index(ua, "ELB-HealthChecker") != -1 {
 		browser = "aws-elb"
 		browserVer = regexGet(ua, elbVersion)
+		return browser, browserVer
+	} else if strings.Index(ua, "Mozilla") != -1 && strings.Index(ua, "AppleWebKit") != -1 {
+		browser = "ios_cna"
+		return browser, browserVer
 	}
 
 	return browser, browserVer
