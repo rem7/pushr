@@ -30,6 +30,7 @@ type ConfigFile struct {
 	AwsAccessKey       string    `yaml:"aws_access_key" ini:"aws_access_key"`
 	AwsSecretAccessKey string    `yaml:"aws_secret_access_key" ini:"aws_secret_access_key"`
 	AwsRegion          string    `yaml:"aws_region" ini:"aws_region"`
+	AwsSTSRole         string    `yaml:"aws_sts_role"`
 	EC2Host            bool      `yaml:"ec2host"`
 	Hostname           string    `yaml:"hostname" ini:"hostname"`
 	Logfiles           []Logfile `yaml:"files"`
@@ -158,7 +159,7 @@ func configureStreams(ctx context.Context, config ConfigFile) map[string]Streame
 		case conf.Type == "firehose":
 			log.WithField("stream", streamName).Infof("streaming to firehose: %s", conf.Name)
 			stream = NewFirehoseStream(ctx, conf.RecordFormat, config.AwsAccessKey,
-				config.AwsSecretAccessKey, config.AwsRegion, conf.Name)
+				config.AwsSecretAccessKey, config.AwsRegion, config.AwsSTSRole, conf.Name)
 		case conf.Type == "csv":
 			filename := conf.Name + ".csv"
 			log.WithField("stream", streamName).Infof("streaming to csv %s", filename)

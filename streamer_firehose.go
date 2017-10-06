@@ -13,6 +13,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/firehose"
 	"math"
@@ -35,13 +36,20 @@ type FirehoseStream struct {
 	wg           sync.WaitGroup
 }
 
-func NewFirehoseStream(ctx context.Context, recordFormat []Attribute, accessKey, secretAccessKey, awsRegion, streamName string) *FirehoseStream {
-
-	s := &FirehoseStream{}
-	sess := &session.Session{}
+func NewFirehoseStream(ctx context.Context, recordFormat []Attribute, accessKey, secretAccessKey, awsRegion, awsSTSRole, streamName string) *FirehoseStream {
 
 	if awsRegion == "" {
 		log.Fatal("Please Specify the region your firehose is.")
+	}
+
+	s := &FirehoseStream{}
+	sess := &session.Session{}
+	awsConfig := &aws.Config{Region: aws.String(awsRegion)}
+
+	if awsSTSRole != "" {
+		sess = session.Must(session.NewSession())
+		creds := stscreds.NewCredentials(sess, awsSTSRole)
+		awsConfig.Credentials = creds
 	} else if accessKey == "" || secretAccessKey == "" {
 		// try IAM
 		sess = session.New(nil)
@@ -54,7 +62,7 @@ func NewFirehoseStream(ctx context.Context, recordFormat []Attribute, accessKey,
 		sess = session.New(config)
 	}
 
-	s.svc = firehose.New(sess, &aws.Config{Region: aws.String(awsRegion)})
+	s.svc = firehose.New(sess, awsConfig)
 	s.stream = streamName
 	s.dataChan = make(chan []byte, BATCH_LIMIT*5)
 	s.interval = 5 * time.Second
