@@ -23,6 +23,18 @@ import (
 	"time"
 )
 
+func ParseOptions(options []string) map[string]string {
+	optionsProps := make(map[string]string)
+	for i := 0; i < len(options); i++ {
+		optionsSplit := strings.Split(options[i], ":")
+		if len(optionsSplit) > 1 {
+			key, value := optionsSplit[0], optionsSplit[1]
+			optionsProps[key] = strings.TrimSpace(value)
+		}
+	}
+	return optionsProps
+}
+
 func LogFuncs(logfile Logfile) (func(msg string, args ...interface{}),
 	func(msg string, args ...interface{}),
 	func(msg string, args ...interface{}),

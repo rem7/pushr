@@ -23,9 +23,22 @@ type CSVParser struct {
 	Hostname    string
 	FieldsOrder []string
 	Table       []Attribute
+	Delimiter   rune
 }
 
-func NewCSVParser(app, appVer, filename, hostname string, fieldsOrder []string, defaultTable []Attribute) *CSVParser {
+func NewCSVParser(app, appVer, filename, hostname string, fieldsOrder []string, defaultTable []Attribute, options []string) *CSVParser {
+
+	delimiter := rune(',')
+	parsedOptions := ParseOptions(options)
+	for k, v := range parsedOptions {
+		if k == "delimiter" {
+			runes := []rune(v)
+			if len(runes) > 0 {
+				delimiter = runes[0]
+			}
+		}
+	}
+
 	return &CSVParser{
 		App:         app,
 		AppVer:      appVer,
@@ -33,6 +46,7 @@ func NewCSVParser(app, appVer, filename, hostname string, fieldsOrder []string, 
 		Hostname:    hostname,
 		FieldsOrder: fieldsOrder,
 		Table:       defaultTable,
+		Delimiter:   delimiter,
 	}
 }
 
@@ -64,6 +78,7 @@ func (p *CSVParser) Parse(line string) (map[string]string, error) {
 
 	result := p.Defaults()
 	r := csv.NewReader(strings.NewReader(line))
+	r.Comma = p.Delimiter
 	var cleanLogLine bytes.Buffer
 
 	record, err := r.Read()

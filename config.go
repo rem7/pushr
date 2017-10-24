@@ -47,6 +47,7 @@ type Logfile struct {
 	LineRegex          string            `yaml:"line_regex" ini:"line_regex"  json:"line_regex"`
 	FrontSplitRegexStr string            `yaml:"front_split_regex" ini:"front_split_regex"  json:"front_split_regex,omitempty"` // option used to split at the begining of the line instead
 	ParseMode          string            `yaml:"parse_mode" ini:"parse_mode"json:"parse_mode"`
+	ParserOptions      []string          `yaml:"parser_options"`
 	RetryFileOpen      bool              `yaml:"retry_file_open" ini:"retry_file_open" json:"retry_file_open,omitempty"`
 	FieldMappings      map[string]string `yaml:"field_mappings" json:"field_mappings,omitempty"`
 	BufferMultiLines   bool              `yaml:"buffer_multi_lines" ini:"buffer_multi_lines" json:"buffer_multi_lines,omitempty"`

@@ -106,7 +106,7 @@ func MonitorFile(ctx context.Context, logfile Logfile) error {
 		parser = NewJSONParser(gApp, appVer(), logfile.Filename, gHostname, logfile.FieldMappings, stream.RecordFormat())
 		break
 	case "csv":
-		parser = NewCSVParser(gApp, appVer(), logfile.Filename, gHostname, logfile.FieldsOrder, stream.RecordFormat())
+		parser = NewCSVParser(gApp, appVer(), logfile.Filename, gHostname, logfile.FieldsOrder, stream.RecordFormat(), logfile.ParserOptions)
 		break
 	case "json_raw":
 		parser = NewJSONRawParser(gApp, appVer(), logfile.Filename, gHostname, stream.RecordFormat())
