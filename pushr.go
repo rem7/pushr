@@ -140,6 +140,10 @@ func MonitorFile(ctx context.Context, logfile Logfile) error {
 	var streamed_lines_ctr uint64 = 0
 	var lines_ctr uint64 = 0
 	bufferMultiLines := logfile.BufferMultiLines
+	skipHeader := false
+	if logfile.SkipHeaderLine {
+		skipHeader = true
+	}
 
 LOOP:
 	for {
@@ -156,9 +160,13 @@ LOOP:
 			if !ok {
 				break LOOP
 			}
-			lines_ctr += 1
 
-			// fmt.Printf("\nrecvd:\n%s\n", line)
+			if skipHeader {
+				skipHeader = false
+				continue
+			}
+
+			lines_ctr += 1
 
 			record, eventDatetime := processLine(logfile, parser, line, stream.RecordFormat())
 			if fastForward && eventDatetime == nil {
