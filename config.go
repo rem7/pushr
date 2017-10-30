@@ -56,6 +56,7 @@ type Logfile struct {
 	LastTimestamp      time.Time         `json:"-"`
 	Regex              *regexp.Regexp    `json:"-"`
 	FrontSplitRegex    *regexp.Regexp    `json:"-"`
+	SkipHeaderLine     bool              `yaml:"skip_header_line"`
 }
 
 type StreamConfig struct {
