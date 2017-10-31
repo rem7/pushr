@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	ISO_8601 = "2006-01-02T15:04:05.999Z"
+	ISO_8601 = "2006-01-02T15:04:05.000Z"
 )
 
 type CSVFormatter struct {

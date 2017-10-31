@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	ISO_8601          string = "2006-01-02T15:04:05.999Z"
+	ISO_8601          string = "2006-01-02T15:04:05.000Z"
 	MAX_BUFFERED_LINE int    = 65535 // redshift VARCHAR(MAX)
 )
 
