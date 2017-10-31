@@ -63,6 +63,10 @@ func (r *Record) RecordToCSV() []byte {
 			val = string(bytes.Replace([]byte(val), []byte("\x00"), nil, -1))
 		}
 
+		if attr.Key == "_uuid" {
+			val, _ = GenerateUUID()
+		}
+
 		record = append(record, val)
 
 	}
