@@ -67,7 +67,7 @@ func (t *Tail) Start() {
 	go t.watchFile(t.Context, t.Filename)
 }
 
-func NewTailWithCtx(ctx context.Context, path string, follow, retryFileOpen bool, delim *regexp.Regexp, lineStartSplit bool) *Tail {
+func NewTailWithCtx(ctx context.Context, path string, follow, retryFileOpen bool, delim *regexp.Regexp, lineStartSplit bool, skipToEnd bool) *Tail {
 
 	ctx, cancel := context.WithCancel(ctx)
 
@@ -85,7 +85,7 @@ func NewTailWithCtx(ctx context.Context, path string, follow, retryFileOpen bool
 		RetryFileOpen:  retryFileOpen,
 		lineStartSplit: lineStartSplit,
 		delim:          d,
-		SeekToEnd:      false,
+		SeekToEnd:      skipToEnd,
 	}
 
 	t.Start()

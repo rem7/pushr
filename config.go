@@ -58,6 +58,7 @@ type Logfile struct {
 	Regex              *regexp.Regexp    `json:"-"`
 	FrontSplitRegex    *regexp.Regexp    `json:"-"`
 	SkipHeaderLine     bool              `yaml:"skip_header_line"`
+	SkipToEnd          bool              `yaml:"skip_to_end"`
 }
 
 type StreamConfig struct {
