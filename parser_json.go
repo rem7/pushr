@@ -10,8 +10,10 @@ package main
 
 import (
 	"encoding/json"
+	log "github.com/Sirupsen/logrus"
 	"strings"
 	"time"
+	"fmt"
 )
 
 type JSONParser struct {
@@ -33,11 +35,14 @@ func NewJSONParser(app, appVer, filename, hostname string, fieldMappings map[str
 		Table:         defaultTable,
 	}
 }
+
 func (p *JSONParser) Init(defaults, fieldMappings map[string]string, FieldsOrder []string, defaultTable []Attribute) {
 }
+
 func (p *JSONParser) GetTable() []Attribute {
 	return p.Table
 }
+
 func (p *JSONParser) Defaults() map[string]string {
 
 	d := make(map[string]string)
@@ -65,17 +70,24 @@ func (p *JSONParser) Parse(line string) (map[string]string, error) {
 	}
 
 	for k, v := range p.FieldMappings {
-		// result[k] = matches[v]
-		if value, ok := matches[v].(string); ok {
-			if isNull(value) {
+		if inf, ok := matches[v]; ok {
+			switch t := inf.(type) {
+			case nil :
 				result[k] = "\\N"
-			} else {
-				result[k] = value
+			case string :
+				if isNull(inf.(string)) {
+					result[k] = "\\N"
+				} else {
+					result[k] = inf.(string)
+				}
+			case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, uintptr, float32, float64, complex64, complex128, bool :
+				result[k] = fmt.Sprintf("%v", inf)
+			default:
+				result[k] = fmt.Sprintf("%v", inf)
+				log.Warnf("Coercing string conversion from non string, numeric or bool value: %v of type: %T in key: %v", inf, t, v)
 			}
 		}
-
 		delete(matches, v)
-
 	}
 
 	cleanLogLine := line
