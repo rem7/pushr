@@ -80,7 +80,11 @@ func (p *JSONParser) Parse(line string) (map[string]string, error) {
 				} else {
 					result[k] = inf.(string)
 				}
-			case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, uintptr, float32, float64, complex64, complex128, bool :
+			case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64 :
+				result[k] = fmt.Sprintf("%9.f", inf)
+			case float32, float64, complex64, complex128:
+				result[k] = fmt.Sprintf("%9.f", inf)
+			case bool:
 				result[k] = fmt.Sprintf("%v", inf)
 			default:
 				result[k] = fmt.Sprintf("%v", inf)
