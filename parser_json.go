@@ -10,10 +10,10 @@ package main
 
 import (
 	"encoding/json"
-	log "github.com/Sirupsen/logrus"
 	"strings"
 	"time"
-	"fmt"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 type JSONParser struct {
@@ -71,25 +71,11 @@ func (p *JSONParser) Parse(line string) (map[string]string, error) {
 
 	for k, v := range p.FieldMappings {
 		if inf, ok := matches[v]; ok {
-			switch t := inf.(type) {
-			case nil :
-				result[k] = "\\N"
-			case string :
-				if isNull(inf.(string)) {
-					result[k] = "\\N"
-				} else {
-					result[k] = inf.(string)
-				}
-			case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64 :
-				result[k] = fmt.Sprintf("%9.f", inf)
-			case float32, float64, complex64, complex128:
-				result[k] = fmt.Sprintf("%9.f", inf)
-			case bool:
-				result[k] = fmt.Sprintf("%v", inf)
-			default:
-				result[k] = fmt.Sprintf("%v", inf)
-				log.Warnf("Coercing string conversion from non string, numeric or bool value: %v of type: %T in key: %v", inf, t, v)
+			s, err := interfaceToString(inf)
+			if err != nil {
+				log.Warn(err.Error())
 			}
+			result[k] = s
 		}
 		delete(matches, v)
 	}
