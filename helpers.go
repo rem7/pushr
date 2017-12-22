@@ -323,7 +323,6 @@ func interfaceToString(inf interface{}) (string, error) {
 		} else {
 			return inf.(string), nil
 		}
-		return inf.(string), nil
 	case int :
 		return strconv.Itoa(inf.(int)), nil
 	case bool :
