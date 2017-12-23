@@ -328,9 +328,9 @@ func interfaceToString(inf interface{}) (string, error) {
 	case bool :
 		return strconv.FormatBool(inf.(bool)), nil
 	case float32 :
-		return strconv.FormatFloat(inf.(float64), 'G', 9, 32), nil
+		return strconv.FormatFloat(inf.(float64), 'G', -1, 32), nil
 	case float64 :
-		return strconv.FormatFloat(inf.(float64), 'G', 9, 64), nil
+		return strconv.FormatFloat(inf.(float64), 'G', -1, 64), nil
 	case uint64 :
 		return strconv.FormatUint(inf.(uint64), 10), nil
 	case error :
