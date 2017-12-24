@@ -12,6 +12,8 @@ import (
 	"encoding/json"
 	"strings"
 	"time"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 type JSONParser struct {
@@ -33,11 +35,14 @@ func NewJSONParser(app, appVer, filename, hostname string, fieldMappings map[str
 		Table:         defaultTable,
 	}
 }
+
 func (p *JSONParser) Init(defaults, fieldMappings map[string]string, FieldsOrder []string, defaultTable []Attribute) {
 }
+
 func (p *JSONParser) GetTable() []Attribute {
 	return p.Table
 }
+
 func (p *JSONParser) Defaults() map[string]string {
 
 	d := make(map[string]string)
@@ -65,17 +70,14 @@ func (p *JSONParser) Parse(line string) (map[string]string, error) {
 	}
 
 	for k, v := range p.FieldMappings {
-		// result[k] = matches[v]
-		if value, ok := matches[v].(string); ok {
-			if isNull(value) {
-				result[k] = "\\N"
-			} else {
-				result[k] = value
+		if inf, ok := matches[v]; ok {
+			s, err := interfaceToString(inf)
+			if err != nil {
+				log.Warn(err.Error())
 			}
+			result[k] = s
 		}
-
 		delete(matches, v)
-
 	}
 
 	cleanLogLine := line

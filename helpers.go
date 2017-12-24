@@ -312,3 +312,30 @@ func getIPs() []string {
 	}
 	return addresses
 }
+
+func interfaceToString(inf interface{}) (string, error) {
+	switch t := inf.(type) {
+	case nil :
+		return "\\N", nil
+	case string :
+		if isNull(inf.(string)) {
+			return "\\N", nil
+		} else {
+			return inf.(string), nil
+		}
+	case int :
+		return strconv.Itoa(inf.(int)), nil
+	case bool :
+		return strconv.FormatBool(inf.(bool)), nil
+	case float32 :
+		return strconv.FormatFloat(inf.(float64), 'G', -1, 32), nil
+	case float64 :
+		return strconv.FormatFloat(inf.(float64), 'G', -1, 64), nil
+	case uint64 :
+		return strconv.FormatUint(inf.(uint64), 10), nil
+	case error :
+		return inf.(error).Error(), nil
+	default :
+		return fmt.Sprintf("%v", t), fmt.Errorf("Coercing string conversion on: '%v' from unknown type: %T", t, t)
+	}
+}

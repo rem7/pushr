@@ -4,6 +4,10 @@
 *.so
 *.dylib
 
+# VIM
+*.swo
+*.swp
+
 # Test binary, build with `go test -c`
 *.test
 
