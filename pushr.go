@@ -231,11 +231,11 @@ LOOP:
 
 func MonitorDir(ctx context.Context, logfile Logfile, files []string) error {
 
-	infof, _, errorf, _ := LogFuncs(logfile)
+	infof, _, errorf, fatalf := LogFuncs(logfile)
 	infof("monitoring dir start")
 	configExt := filepath.Ext(logfile.Directory)
 	if configExt == "" {
-		log.Fatal("must specify file extension")
+		fatalf("must specify file extension")
 	}
 
 	monitorDirCtx, monitorCancel := context.WithCancel(ctx)
@@ -276,9 +276,9 @@ LOOP:
 					wg.Done()
 				}(logfile)
 			case newExt == "":
-				log.Printf("ignoring file: %s with no extension", newFile)
+				infof("ignoring file: %s with no extension", newFile)
 			case newExt != configExt:
-				log.Printf("ignoring file: %s mis-match extension: %s expected: %s", newFile, newExt, configExt)
+				infof("ignoring file: %s mis-match extension: %s expected: %s", newFile, newExt, configExt)
 			}
 			break
 		case removedFile := <-removedFiles:
