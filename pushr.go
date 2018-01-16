@@ -21,6 +21,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"path/filepath"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -230,8 +231,12 @@ LOOP:
 
 func MonitorDir(ctx context.Context, logfile Logfile, files []string) error {
 
-	infof, _, errorf, _ := LogFuncs(logfile)
+	infof, _, errorf, fatalf := LogFuncs(logfile)
 	infof("monitoring dir start")
+	configExt := filepath.Ext(logfile.Directory)
+	if configExt == "" {
+		fatalf("must specify file extension")
+	}
 
 	monitorDirCtx, monitorCancel := context.WithCancel(ctx)
 	newFiles, removedFiles, err := monitorDir(monitorDirCtx, logfile.Directory)
@@ -259,14 +264,22 @@ LOOP:
 			monitorCancel()
 			break LOOP
 		case newFile := <-newFiles:
-			logfile.Filename = newFile
-			ctx, cancel := context.WithCancel(monitorDirCtx)
-			ctxs[logfile.Filename] = cancel
-			wg.Add(1)
-			go func(l Logfile) {
-				MonitorFile(ctx, l)
-				wg.Done()
-			}(logfile)
+			newExt := filepath.Ext(newFile)
+			switch {
+			case newExt == configExt:
+				logfile.Filename = newFile
+				ctx, cancel := context.WithCancel(monitorDirCtx)
+				ctxs[logfile.Filename] = cancel
+				wg.Add(1)
+				go func(l Logfile) {
+					MonitorFile(ctx, l)
+					wg.Done()
+				}(logfile)
+			case newExt == "":
+				infof("ignoring file: %s with no extension", newFile)
+			case newExt != configExt:
+				infof("ignoring file: %s mis-match extension: %s expected: %s", newFile, newExt, configExt)
+			}
 			break
 		case removedFile := <-removedFiles:
 			if cancel, ok := ctxs[removedFile]; ok {
@@ -281,7 +294,6 @@ LOOP:
 			break LOOP
 		}
 	}
-
 	wg.Wait()
 	return nil
 }

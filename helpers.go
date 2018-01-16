@@ -134,9 +134,7 @@ func monitorDir(ctx context.Context, path string) (chan string, chan string, err
 			case event := <-watcher.Events:
 				switch event.Op {
 				case fsnotify.Create:
-					if strings.Index(event.Name, ext) > 0 {
-						newFiles <- event.Name
-					}
+					newFiles <- event.Name
 					break
 				case fsnotify.Remove, fsnotify.Rename:
 					if strings.Index(event.Name, ext) > 0 {
