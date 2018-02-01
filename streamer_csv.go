@@ -43,9 +43,14 @@ func (s *CSVStream) Close() {
 }
 
 func (s *CSVStream) Stream(data *Record) error {
+	var err error
 
 	s.mutex.Lock()
-	_, err := s.file.Write(data.RecordToCSV())
+	if gStrictCSV {
+		_, err = s.file.Write(data.StrictRecordToCSV())
+	} else {
+		_, err = s.file.Write(data.RecordToCSV())
+	}
 	s.mutex.Unlock()
 
 	return err

@@ -23,6 +23,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	//"math/big"
 )
 
 func GenerateUUID() (string, error) {
@@ -312,6 +314,7 @@ func getIPs() []string {
 }
 
 func interfaceToString(inf interface{}) (string, error) {
+
 	switch t := inf.(type) {
 	case nil :
 		return "\\N", nil
@@ -326,9 +329,9 @@ func interfaceToString(inf interface{}) (string, error) {
 	case bool :
 		return strconv.FormatBool(inf.(bool)), nil
 	case float32 :
-		return strconv.FormatFloat(inf.(float64), 'G', -1, 32), nil
+		return strconv.FormatFloat(inf.(float64), 'f', -1, 32), nil
 	case float64 :
-		return strconv.FormatFloat(inf.(float64), 'G', -1, 64), nil
+		return strconv.FormatFloat(inf.(float64), 'f', -1, 64), nil
 	case uint64 :
 		return strconv.FormatUint(inf.(uint64), 10), nil
 	case error :
@@ -336,4 +339,13 @@ func interfaceToString(inf interface{}) (string, error) {
 	default :
 		return fmt.Sprintf("%v", t), fmt.Errorf("Coercing string conversion on: '%v' from unknown type: %T", t, t)
 	}
+}
+
+func stringInSlice(a string, slice []string) bool {
+	for _, b := range slice {
+		if b == a {
+			return true
+		}
+	}
+	return false
 }

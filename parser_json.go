@@ -61,6 +61,9 @@ func (p *JSONParser) Defaults() map[string]string {
 }
 
 func (p *JSONParser) Parse(line string) (map[string]string, error) {
+	// By default, Go treats numeric values in JSON as float64
+	// this will result in loss of precision for 'bigint'
+	// TODO: Implement a json.NewDecoder() w/ decoder.UseNumber()
 
 	matches := make(map[string]interface{})
 	result := p.Defaults()

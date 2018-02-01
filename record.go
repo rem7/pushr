@@ -13,6 +13,8 @@ import (
 	"crypto/md5"
 	"encoding/csv"
 	"strconv"
+	//"log"
+	log "github.com/Sirupsen/logrus"
 )
 
 type Streamer interface {
@@ -78,3 +80,79 @@ func (r *Record) RecordToCSV() []byte {
 
 	return csvData.Bytes()
 }
+
+func (r *Record) StrictRecordToCSV() []byte {
+
+	record := []string{}
+	var convVal interface{}
+	var err error
+	//var reserveCols = []string{"_uuid"}
+
+	for _, attr := range r.recordFormat {
+
+		val := r.EventAttributes[attr.Key]
+		switch {
+		case attr.Key == "_uuid":
+			convVal, _ = GenerateUUID()
+
+		//case val == "\\N" && !(stringInSlice(attr.Key, reserveCols)):
+		case val == "\\N" :
+			convVal = "\\N"
+
+		case attr.Type == "string", attr.Type == "timestamp":
+			if isNull(val) {
+				convVal = "\\N"
+			} else {
+				convVal = ConvertToUTF8(val, attr.Length)
+				convVal = string(bytes.Replace([]byte(convVal.(string)), []byte("\x00"), nil, -1))
+			}
+
+		case attr.Type == "integer":
+			if convVal, err = strconv.Atoi(val); err != nil {
+				convVal = "\\N"
+				log.Warnf("conversion err '%s', to %s", val, attr.Type)
+			} else {
+				convVal = strconv.Itoa(convVal.(int))
+			}
+
+		case attr.Type == "float32":
+			if convVal, err = strconv.ParseFloat(val, 64); err != nil {
+				convVal = "\\N"
+				log.Warnf("conversion err '%s', to %s: %s", val, attr.Type, err.Error())
+			} else {
+				convVal = strconv.FormatFloat(convVal.(float64), 'f', -1, 32)
+			}
+
+		case attr.Type == "float64":
+			if convVal, err = strconv.ParseFloat(val, 64); err != nil {
+				convVal = "\\N"
+				log.Warnf("conversion err '%s', to %s: %s", val, attr.Type, err.Error())
+			} else {
+				convVal = strconv.FormatFloat(convVal.(float64), 'f', -1, 64)
+			}
+
+		case attr.Type == "bool":
+			if convVal, err = strconv.ParseBool(val); err != nil {
+				convVal = "\\N"
+				log.Warnf("conversion err '%s', to %s", val, attr.Type)
+			} else {
+				convVal = strconv.FormatBool(convVal.(bool))
+			}
+
+		default:
+			convVal = "\\N"
+			log.Warnf("unknown attritbute type: %s", attr.Type)
+
+		}
+
+		record = append(record, convVal.(string))
+	}
+
+	var csvData bytes.Buffer
+	csvWriter := csv.NewWriter(&csvData)
+	csvWriter.Write(record)
+	csvWriter.Flush()
+
+	return csvData.Bytes()
+}
+
