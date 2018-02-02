@@ -49,7 +49,6 @@ func (r *Record) RecordToCSV() []byte {
 	record := []string{}
 	var convVal interface{}
 	var err error
-	//var reserveCols = []string{"_uuid"}
 
 	for _, attr := range r.recordFormat {
 
@@ -58,7 +57,6 @@ func (r *Record) RecordToCSV() []byte {
 		case attr.Key == "_uuid":
 			convVal, _ = GenerateUUID()
 
-		//case val == "\\N" && !(stringInSlice(attr.Key, reserveCols)):
 		case val == "\\N" :
 			convVal = "\\N"
 
