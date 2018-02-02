@@ -47,43 +47,6 @@ func (r *Record) Hash() []byte {
 func (r *Record) RecordToCSV() []byte {
 
 	record := []string{}
-
-	for _, attr := range r.recordFormat {
-		val := r.EventAttributes[attr.Key]
-
-		if attr.Type == "timestamp" {
-		} else if attr.Type == "integer" {
-			if _, err := strconv.Atoi(val); err != nil {
-				val = "\\N"
-			}
-		} else if attr.Type == "double" {
-			if _, err := strconv.ParseFloat(val, 64); err != nil {
-				val = "\\N"
-			}
-		} else if attr.Type == "string" {
-			val = ConvertToUTF8(val, attr.Length)
-			val = string(bytes.Replace([]byte(val), []byte("\x00"), nil, -1))
-		}
-
-		if attr.Key == "_uuid" {
-			val, _ = GenerateUUID()
-		}
-
-		record = append(record, val)
-
-	}
-
-	var csvData bytes.Buffer
-	csvWriter := csv.NewWriter(&csvData)
-	csvWriter.Write(record)
-	csvWriter.Flush()
-
-	return csvData.Bytes()
-}
-
-func (r *Record) StrictRecordToCSV() []byte {
-
-	record := []string{}
 	var convVal interface{}
 	var err error
 	//var reserveCols = []string{"_uuid"}
@@ -123,7 +86,7 @@ func (r *Record) StrictRecordToCSV() []byte {
 				convVal = strconv.FormatFloat(convVal.(float64), 'f', -1, 32)
 			}
 
-		case attr.Type == "float64":
+		case attr.Type == "float64", attr.Type =="double":
 			if convVal, err = strconv.ParseFloat(val, 64); err != nil {
 				convVal = "\\N"
 				log.Warnf("conversion err '%s', to %s: %s", val, attr.Type, err.Error())

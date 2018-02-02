@@ -75,12 +75,7 @@ func NewFirehoseStream(ctx context.Context, recordFormat []Attribute, accessKey,
 }
 
 func (s *FirehoseStream) Stream(r *Record) error {
-	if gStrictCSV {
-		s.dataChan <- r.StrictRecordToCSV()
-	} else {
-		s.dataChan <- r.RecordToCSV()
-	}
-
+	s.dataChan <- r.RecordToCSV()
 	return nil
 }
 

@@ -68,11 +68,6 @@ func main() {
 			Usage: "--limit-days-ago <number of days>",
 			Value: 10,
 		},
-		cli.BoolFlag{
-			Name:        "strict-csv",
-			Usage:       "--strict-csv <true|false>",
-			Destination: &gStrictCSV,
-		},
 	}
 
 	app.Action = func(c *cli.Context) error {
