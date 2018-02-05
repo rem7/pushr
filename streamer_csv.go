@@ -49,7 +49,6 @@ func (s *CSVStream) Stream(data *Record) error {
 	s.mutex.Unlock()
 
 	return err
-
 }
 
 func (s *CSVStream) RecordFormat() []Attribute {
