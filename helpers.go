@@ -11,6 +11,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"crypto/md5"
 	"crypto/rand"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
@@ -23,9 +24,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
 	//"math/big"
 )
+
+var splitOptionsRegex = regexp.MustCompile(`^([^\:]*)\:\s?(.*)`)
 
 func GenerateUUID() (string, error) {
 
@@ -45,10 +47,10 @@ func GenerateUUID() (string, error) {
 func ParseOptions(options []string) map[string]string {
 	optionsProps := make(map[string]string)
 	for i := 0; i < len(options); i++ {
-		optionsSplit := strings.Split(options[i], ":")
-		if len(optionsSplit) > 1 {
-			key, value := optionsSplit[0], optionsSplit[1]
-			optionsProps[key] = strings.TrimSpace(value)
+		optionsSplit := splitOptionsRegex.FindStringSubmatch(options[i])
+		if len(optionsSplit) > 2 {
+			key, value := optionsSplit[1], optionsSplit[2]
+			optionsProps[strings.TrimSpace(key)] = strings.TrimSpace(value)
 		}
 	}
 	return optionsProps
@@ -316,27 +318,27 @@ func getIPs() []string {
 func interfaceToString(inf interface{}) (string, error) {
 
 	switch t := inf.(type) {
-	case nil :
+	case nil:
 		return "\\N", nil
-	case string :
+	case string:
 		if isNull(inf.(string)) {
 			return "\\N", nil
 		} else {
 			return inf.(string), nil
 		}
-	case int :
+	case int:
 		return strconv.Itoa(inf.(int)), nil
-	case bool :
+	case bool:
 		return strconv.FormatBool(inf.(bool)), nil
-	case float32 :
+	case float32:
 		return strconv.FormatFloat(inf.(float64), 'f', -1, 32), nil
-	case float64 :
+	case float64:
 		return strconv.FormatFloat(inf.(float64), 'f', -1, 64), nil
-	case uint64 :
+	case uint64:
 		return strconv.FormatUint(inf.(uint64), 10), nil
-	case error :
+	case error:
 		return inf.(error).Error(), nil
-	default :
+	default:
 		return fmt.Sprintf("%v", t), fmt.Errorf("Coercing string conversion on: '%v' from unknown type: %T", t, t)
 	}
 }
@@ -348,4 +350,10 @@ func stringInSlice(a string, slice []string) bool {
 		}
 	}
 	return false
+}
+
+func getHash(data []byte) string {
+	h := md5.New()
+	h.Write(data)
+	return fmt.Sprintf("%x", h.Sum(nil))
 }

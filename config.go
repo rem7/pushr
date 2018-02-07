@@ -69,6 +69,7 @@ type StreamConfig struct {
 	StreamApiKey       string      `yaml:"stream_api_key" ini:"stream_api_key"`
 	RecordFormatString string      `ini:"record_format"`
 	RecordFormat       []Attribute `yaml:"record_format"`
+	Options            []string    `yaml:"options"`
 }
 
 type LiveServerConfig struct {
@@ -158,17 +159,21 @@ func configureStreams(ctx context.Context, config ConfigFile) map[string]Streame
 		streamName := conf.StreamName
 
 		var stream Streamer
-		switch {
-		case conf.Type == "firehose":
+		switch conf.Type {
+		case "firehose":
 			log.WithField("stream", streamName).Infof("streaming to firehose: %s", conf.Name)
 			stream = NewFirehoseStream(ctx, conf.RecordFormat, config.AwsAccessKey,
 				config.AwsSecretAccessKey, config.AwsRegion, config.AwsSTSRole, conf.Name)
-		case conf.Type == "csv":
+		case "s3":
+			log.WithField("stream", streamName).Info("streaming to s3")
+			stream = NewS3Stream(ctx, conf.RecordFormat, config.AwsAccessKey,
+				config.AwsSecretAccessKey, config.AwsRegion, config.AwsSTSRole, conf.Name, conf.Options)
+		case "csv":
 			filename := conf.Name + ".csv"
 			log.WithField("stream", streamName).Infof("streaming to csv %s", filename)
 			stream = NewCSVStream(conf.RecordFormat, filename)
 			break
-		case conf.Type == "http":
+		case "http":
 			log.WithField("stream", streamName).Info("streaming to http")
 			stream = NewDCHTTPStream(conf.RecordFormat, conf.Url, conf.StreamApiKey, 125000)
 			break
