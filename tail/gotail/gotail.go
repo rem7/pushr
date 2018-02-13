@@ -11,11 +11,14 @@ package main
 // Sample program using tail library
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"regexp"
 	"sync"
-	"tail"
 	"unicode/utf8"
+
+	"github.com/rem7/pushr/tail"
 )
 
 func main() {
@@ -25,13 +28,15 @@ func main() {
 		os.Exit(-1)
 	}
 
+	fls := regexp.MustCompile(`\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}-\d{2}:\d{2}\s`)
+
 	var wg sync.WaitGroup
 	files := os.Args[1:]
 	for _, file := range files {
 		wg.Add(1)
 		go func(path string) {
 
-			t := tail.NewTail(path)
+			t := tail.NewTailWithCtx(context.Background(), path, false, true, fls, true, false)
 
 			n := 1
 			for {
