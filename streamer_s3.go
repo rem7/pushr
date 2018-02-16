@@ -177,6 +177,9 @@ func (s *S3Stream) _uploadBuffer(data []byte, recordCount, retryCount int) {
 		now.Year(), now.Month(), now.Day(), now.Hour(), now.Minute())
 
 	filename := getHash(data)
+	if s.compression == "gzip" {
+		filename += ".gz"
+	}
 
 	key := filepath.Join(s.prefix, s.stream, folders, filename)
 
