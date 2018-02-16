@@ -10,6 +10,7 @@ package main
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -23,6 +24,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -46,6 +48,7 @@ type S3Stream struct {
 	stream         string
 	ddlVersion     string
 	s3Owner        string
+	compression    string
 }
 
 func (s *S3Stream) Close() {
@@ -133,8 +136,19 @@ func (s *S3Stream) writeData(data []byte, forceUpload bool) {
 	}
 
 	if s.buf.Len() >= s.bufferSize || forceUpload {
-		dataCopy := make([]byte, s.buf.Len())
-		copy(dataCopy, s.buf.Bytes())
+
+		var dataCopy []byte
+		if s.compression == "gzip" {
+			buf := bytes.Buffer{}
+			wz := gzip.NewWriter(&buf)
+			wz.Write(s.buf.Bytes())
+			wz.Close()
+			dataCopy = buf.Bytes()
+		} else {
+			dataCopy = make([]byte, s.buf.Len())
+			copy(dataCopy, s.buf.Bytes())
+		}
+
 		s.uploadBuffer(dataCopy, s.recordCount, 0)
 		s.buf.Reset()
 		s.recordCount = 0
@@ -277,6 +291,11 @@ func parseS3Options(opts map[string]string) *S3Stream {
 			s.ddlVersion = val
 		case "s3_owner":
 			s.s3Owner = val
+		case "compression":
+			if strings.ToLower(val) != "gzip" {
+				log.Fatalf("%s not supported", val)
+			}
+			s.compression = val
 		default:
 			break
 		}
