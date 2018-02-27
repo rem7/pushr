@@ -69,6 +69,7 @@ func NewFirehoseStream(ctx context.Context, recordFormat []Attribute, accessKey,
 	s.recordFormat = recordFormat
 	s.ctx = ctx
 
+	s.wg.Add(1)
 	go s.intervalStreamer()
 
 	return s
