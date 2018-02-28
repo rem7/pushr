@@ -127,8 +127,7 @@ LOOP:
 			dataCopy := make([]*firehose.Record, len(accum))
 			copy(dataCopy, accum)
 
-			s.wg.Add(1)
-			go s.uploadRecords(dataCopy, 0)
+			s.uploadRecords(dataCopy, 0)
 
 			accum = []*firehose.Record{}
 			sizeAccumulator = 0
@@ -136,6 +135,8 @@ LOOP:
 		}
 
 		if exit {
+			s.wg.Done()
+			s.wg.Wait()
 			break LOOP
 		}
 
@@ -143,6 +144,11 @@ LOOP:
 }
 
 func (s *FirehoseStream) uploadRecords(data []*firehose.Record, failCount int) {
+	s.wg.Add(1)
+	go s._uploadRecords(data, failCount)
+}
+
+func (s *FirehoseStream) _uploadRecords(data []*firehose.Record, failCount int) {
 
 	defer s.wg.Done()
 
@@ -160,8 +166,7 @@ func (s *FirehoseStream) uploadRecords(data []*firehose.Record, failCount int) {
 	r, err := s.svc.PutRecordBatch(params)
 	if err != nil {
 		log.Error(err.Error())
-		s.wg.Add(1)
-		go s.uploadRecords(data, failCount+1)
+		s.uploadRecords(data, failCount+1)
 		return
 	}
 
@@ -175,8 +180,11 @@ func (s *FirehoseStream) uploadRecords(data []*firehose.Record, failCount int) {
 			}
 		}
 
-		s.wg.Add(1)
-		go s.uploadRecords(newData, failCount+1)
+		s.uploadRecords(data, failCount+1)
+	}
+
+	if failCount > 0 {
+		log.Warnf("%v records succeeded after %v retries", len(data), failCount)
 	}
 
 }
