@@ -139,7 +139,7 @@ func (t *Tail) watchFile(ctx context.Context, path string) {
 	fileIn, err := t.openFile(path)
 	if err != nil {
 		log.Infof("1. Unable to openFile. %s", err.Error())
-		os.Exit(0)
+		//os.Exit(0)
 		return
 	}
 	defer fileIn.Close()
