@@ -22,7 +22,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"math"
 	"net/http"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -35,7 +34,7 @@ type S3Stream struct {
 	wg             sync.WaitGroup
 	recordCount    int
 	mutex          *sync.RWMutex
-	bufferSize     int
+	bufferSize     uint64
 	bufferInterval time.Duration
 	svc            *s3.S3
 	bucket         string
@@ -121,7 +120,6 @@ func (s *S3Stream) IntervalStreamer() {
 			s.wg.Wait()
 			break
 		}
-
 	}
 }
 
@@ -135,7 +133,7 @@ func (s *S3Stream) writeData(data []byte, forceUpload bool) {
 		s.recordCount += 1
 	}
 
-	if s.buf.Len() >= s.bufferSize || forceUpload {
+	if (uint64(s.buf.Len()) >= s.bufferSize || forceUpload) && s.recordCount > 0 {
 
 		var dataCopy []byte
 		if s.compression == "gzip" {
@@ -153,7 +151,6 @@ func (s *S3Stream) writeData(data []byte, forceUpload bool) {
 		s.buf.Reset()
 		s.recordCount = 0
 	}
-
 }
 
 func (s *S3Stream) uploadBuffer(data []byte, recordCount, retryCount int) {
@@ -181,7 +178,8 @@ func (s *S3Stream) _uploadBuffer(data []byte, recordCount, retryCount int) {
 		filename += ".gz"
 	}
 
-	key := filepath.Join(s.prefix, s.stream, folders, filename)
+	pathElems := omitEmpty([]string{s.prefix, s.stream, folders, filename})
+	key := strings.Join(pathElems, "/")
 
 	s3PutOpts := &s3.PutObjectInput{
 		Bucket: aws.String(s.bucket),
@@ -277,7 +275,7 @@ func parseS3Options(opts map[string]string) *S3Stream {
 			if err != nil {
 				log.Fatal(err.Error())
 			}
-			s.bufferSize = i
+			s.bufferSize = uint64(i)
 		case "buffer_interval":
 			i, err := strconv.Atoi(val)
 			if err != nil {

@@ -357,3 +357,13 @@ func getHash(data []byte) string {
 	h.Write(data)
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
+
+func omitEmpty(s []string) []string {
+	var res []string
+	for _, str := range s {
+		if str != "" {
+			res = append(res, str)
+		}
+	}
+	return res
+}
