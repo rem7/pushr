@@ -119,7 +119,7 @@ func (t *Tail) openFile(path string) (*os.File, error) {
 			}
 		}
 
-		f, err = os.Open(path)
+		f, err = os.OpenFile(path, openFileFlag, 0444)
 		if err != nil {
 			log.Infof("Unable to open. %s. Waiting 5 seconds and retrying", err.Error())
 			time.Sleep(time.Second * 5)
