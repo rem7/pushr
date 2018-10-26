@@ -13,21 +13,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/rem7/pushr/logger"
-	"github.com/rem7/pushr/tail"
 	"os"
+	"path/filepath"
+	"pushr/logger"
+	"pushr/tail"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
-	"path/filepath"
 
 	log "github.com/Sirupsen/logrus"
 )
 
 const (
-	ISO_8601          string = "2006-01-02T15:04:05.000Z"
+	ISO_8601          string = "2006-01-02T15:04:05.999Z"
 	MAX_BUFFERED_LINE int    = 65535 // redshift VARCHAR(MAX)
 )
 

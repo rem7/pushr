@@ -14,8 +14,6 @@ import (
 	"crypto/md5"
 	"crypto/rand"
 	"fmt"
-	log "github.com/Sirupsen/logrus"
-	"gopkg.in/fsnotify.v1"
 	"io"
 	"net"
 	"os"
@@ -24,6 +22,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	log "github.com/Sirupsen/logrus"
+	"gopkg.in/fsnotify.v1"
 	//"math/big"
 )
 

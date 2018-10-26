@@ -10,6 +10,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"regexp"
 	"strings"
@@ -19,9 +20,11 @@ import (
 )
 
 type Attribute struct {
-	Key    string
-	Type   string
-	Length int
+	Key                        string `yaml:"key"`
+	Type                       string `yaml:"type"`
+	Length                     int    `yaml:"length"`
+	SourceTimestampFormat      string `yaml:"source_ts_fmt"`
+	DestinationTimestampFormat string `yaml:"destination_ts_fmt"`
 }
 
 type ConfigFile struct {
@@ -79,26 +82,26 @@ type LiveServerConfig struct {
 }
 
 var defaultAttributes = []Attribute{
-	Attribute{"app", "string", 16},
-	Attribute{"app_ver", "string", 16},
-	Attribute{"ingest_datetime", "timestamp", 0},
-	Attribute{"event_datetime", "timestamp", 0},
-	Attribute{"hostname", "string", 64},
-	Attribute{"filename", "string", 256},
-	Attribute{"log_level", "string", 16},
-	Attribute{"device_tag", "string", 64},
-	Attribute{"user_tag", "string", 64},
-	Attribute{"remote_address", "string", 64},
-	Attribute{"response_bytes", "integer", 0},
-	Attribute{"response_ms", "double", 0},
-	Attribute{"device_type", "string", 32},
-	Attribute{"os", "string", 16},
-	Attribute{"os_ver", "string", 16},
-	Attribute{"browser", "string", 32},
-	Attribute{"browser_ver", "string", 16},
-	Attribute{"country", "string", 64},
-	Attribute{"language", "string", 16},
-	Attribute{"log_line", "string", 0},
+	{"app", "string", 16, "", ""},
+	{"app_ver", "string", 16, "", ""},
+	{"ingest_datetime", "timestamp", 0, "", ""},
+	{"event_datetime", "timestamp", 0, "", ""},
+	{"hostname", "string", 64, "", ""},
+	{"filename", "string", 256, "", ""},
+	{"log_level", "string", 16, "", ""},
+	{"device_tag", "string", 64, "", ""},
+	{"user_tag", "string", 64, "", ""},
+	{"remote_address", "string", 64, "", ""},
+	{"response_bytes", "integer", 0, "", ""},
+	{"response_ms", "double", 0, "", ""},
+	{"device_type", "string", 32, "", ""},
+	{"os", "string", 16, "", ""},
+	{"os_ver", "string", 16, "", ""},
+	{"browser", "string", 32, "", ""},
+	{"browser_ver", "string", 16, "", ""},
+	{"country", "string", 64, "", ""},
+	{"language", "string", 16, "", ""},
+	{"log_line", "string", 0, "", ""},
 }
 
 func (c *ConfigFile) GetStream(name string) (*StreamConfig, bool) {
@@ -138,11 +141,58 @@ func parseConfig(configPath string) ConfigFile {
 		}
 	}
 
+	if err := config.validate(); err != nil {
+		log.Fatalf("Error validating config. %v", err)
+	}
+
 	gHostname = config.Hostname
 	config.EC2Host = gEC2host
 
 	return config
+}
 
+func (config *ConfigFile) validate() error {
+
+	for _, stream := range config.Streams {
+		for _, recordFormat := range stream.RecordFormat {
+			switch recordFormat.Type {
+			case "timestamp":
+				return recordFormat.validateTimestampFormat()
+			}
+		}
+	}
+	return nil
+}
+
+func (attr *Attribute) validateTimestampFormat() error {
+	if attr.SourceTimestampFormat == "" && attr.DestinationTimestampFormat != "" {
+		return fmt.Errorf("must specify Source Timestamp Format when datatype is Timestamp")
+	}
+	if attr.SourceTimestampFormat != "" && attr.DestinationTimestampFormat == "" {
+		return fmt.Errorf("must specify Source & Destination Timestamp Format when datatype is Timestamp")
+	}
+
+	fullDatetime := time.Date(2008, time.March, 15, 1, 2, 3, 4, time.UTC)
+	shortDatetime := time.Date(2008, time.March, 15, 0, 0, 0, 0, time.UTC)
+
+	if attr.SourceTimestampFormat != "" {
+		timeFormatted := fullDatetime.Format(attr.SourceTimestampFormat)
+		timeReParsed, err := time.Parse(attr.SourceTimestampFormat, timeFormatted)
+
+		if err != nil || (fullDatetime.Unix() != timeReParsed.Unix() && shortDatetime.Unix() != timeReParsed.Unix()) {
+			return fmt.Errorf("source timestamp format is invalid " + attr.SourceTimestampFormat)
+		}
+	}
+
+	if attr.DestinationTimestampFormat != "" {
+		timeFormatted := fullDatetime.Format(attr.DestinationTimestampFormat)
+		timeReParsed, err := time.Parse(attr.DestinationTimestampFormat, timeFormatted)
+
+		if err != nil || (fullDatetime.Unix() != timeReParsed.Unix() && shortDatetime.Unix() != timeReParsed.Unix()) {
+			return fmt.Errorf("destination timestamp format is invalid " + attr.DestinationTimestampFormat)
+		}
+	}
+	return nil
 }
 
 func testParseConfig(configPath string) {
