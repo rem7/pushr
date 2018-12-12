@@ -27,8 +27,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/gorilla/mux"
-	"github.com/rem7/pushr/middleware"
-	"github.com/rem7/pushr/tail"
+	"pushr/middleware"
+	"pushr/tail"
 	"github.com/urfave/negroni"
 )
 

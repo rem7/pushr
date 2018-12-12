@@ -13,7 +13,8 @@ import (
 	"crypto/md5"
 	"encoding/csv"
 	"strconv"
-	//"log"
+	"time"
+
 	log "github.com/Sirupsen/logrus"
 )
 
@@ -57,17 +58,29 @@ func (r *Record) RecordToCSV() []byte {
 		case attr.Key == "_uuid":
 			convVal, _ = GenerateUUID()
 
-		case val == "\\N" :
+		case val == "\\N":
 			convVal = "\\N"
 
-		case attr.Type == "string", attr.Type == "timestamp":
+		case attr.Type == "string":
 			if isNull(val) {
 				convVal = "\\N"
 			} else {
 				convVal = ConvertToUTF8(val, attr.Length)
 				convVal = string(bytes.Replace([]byte(convVal.(string)), []byte("\x00"), nil, -1))
 			}
-
+		case attr.Type == "timestamp":
+			if isNull(val) {
+				convVal = "\\N"
+			} else {
+				convVal = ConvertToUTF8(val, attr.Length)
+				if timestampStr, ok := convVal.(string); ok {
+					convVal, err = toDestinationTimestamp(attr.SourceTimestampFormat, attr.DestinationTimestampFormat, timestampStr)
+					if err != nil {
+						log.Warnf("time conversion err - input value '%s', to %s, sourceFormat '%s', destinationFormat '%s'", val, attr.Type, attr.SourceTimestampFormat, attr.DestinationTimestampFormat)
+					}
+				}
+				convVal = string(bytes.Replace([]byte(convVal.(string)), []byte("\x00"), nil, -1))
+			}
 		case attr.Type == "integer":
 			if convVal, err = strconv.Atoi(val); err != nil {
 				convVal = "\\N"
@@ -84,7 +97,7 @@ func (r *Record) RecordToCSV() []byte {
 				convVal = strconv.FormatFloat(convVal.(float64), 'f', -1, 32)
 			}
 
-		case attr.Type == "float64", attr.Type =="double":
+		case attr.Type == "float64", attr.Type == "double":
 			if convVal, err = strconv.ParseFloat(val, 64); err != nil {
 				convVal = "\\N"
 				log.Warnf("conversion err '%s', to %s: %s", val, attr.Type, err.Error())
@@ -117,3 +130,14 @@ func (r *Record) RecordToCSV() []byte {
 	return csvData.Bytes()
 }
 
+func toDestinationTimestamp(sourceFormat, destinationFormat, input string) (string, error) {
+	if sourceFormat == "" {
+		return input, nil
+	}
+
+	inputTime, err := time.Parse(sourceFormat, input)
+	if err != nil {
+		return "", err
+	}
+	return inputTime.Format(destinationFormat), nil
+}
