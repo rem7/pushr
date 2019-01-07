@@ -14,18 +14,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	log "github.com/Sirupsen/logrus"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
 	"math"
 	"net/http"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	log "github.com/Sirupsen/logrus"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
+	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
 )
 
 type S3Stream struct {
@@ -35,6 +36,7 @@ type S3Stream struct {
 	recordCount    int
 	mutex          *sync.RWMutex
 	bufferSize     uint64
+	maxUploadRetry int
 	bufferInterval time.Duration
 	svc            *s3.S3
 	bucket         string
@@ -86,6 +88,12 @@ func NewS3Stream(ctx context.Context, recordFormat []Attribute, accessKey, secre
 	s.mutex = new(sync.RWMutex)
 	s.dataChan = make(chan []byte, s.bufferSize*2)
 	s.recordFormat = recordFormat
+
+	const maxUploadRetryDefault = 3
+	if s.maxUploadRetry < 1 {
+		log.Warnf("max upload retry unspecified, setting max upload retry to default value of %v", maxUploadRetryDefault)
+		s.maxUploadRetry = maxUploadRetryDefault
+	}
 
 	s.wg.Add(1)
 	go s.IntervalStreamer()
@@ -164,7 +172,7 @@ func (s *S3Stream) _uploadBuffer(data []byte, recordCount, retryCount int) {
 
 	var sleepTime = time.Duration(math.Min(60.0, float64(5*retryCount))) * time.Second
 	if sleepTime > time.Duration(0) {
-		log.Warnf("Retrying %v records in %v seconds", len(data), sleepTime)
+		log.Warnf("Retrying buffer stream with %v records in %v seconds, retry count %v", len(data), sleepTime, retryCount)
 	}
 	time.Sleep(sleepTime)
 
@@ -194,6 +202,10 @@ func (s *S3Stream) _uploadBuffer(data []byte, recordCount, retryCount int) {
 	_, err := s.svc.PutObject(s3PutOpts)
 
 	if err != nil {
+		if retryCount >= s.maxUploadRetry {
+			log.Warnf("Retry count exceeded %v, dropping buffer stream of length %v", s.maxUploadRetry, len(data))
+			return
+		}
 		log.Printf("Error uploading to S3: \n%v\nretrying...", err.Error())
 		s.uploadBuffer(data, recordCount, retryCount+1)
 		return
@@ -276,6 +288,12 @@ func parseS3Options(opts map[string]string) *S3Stream {
 				log.Fatal(err.Error())
 			}
 			s.bufferSize = uint64(i)
+		case "max_upload_retry":
+			i, err := strconv.Atoi(val)
+			if err != nil {
+				log.Fatal(err.Error())
+			}
+			s.maxUploadRetry = i
 		case "buffer_interval":
 			i, err := strconv.Atoi(val)
 			if err != nil {
