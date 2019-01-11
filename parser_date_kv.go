@@ -9,6 +9,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -25,9 +26,21 @@ type DateKVParser struct {
 	Hostname      string
 	FieldMappings map[string]string
 	Table         []Attribute
+	LogLineFormat string
 }
 
-func NewDateKVParser(app, appVer, filename, hostname string, fieldMappings map[string]string, defaultTable []Attribute) *DateKVParser {
+func NewDateKVParser(app, appVer, filename, hostname string, fieldMappings map[string]string, defaultTable []Attribute, options []string) *DateKVParser {
+
+	logLineFmt := "kv"
+	parsedOptions := ParseOptions(options)
+	for k, v := range parsedOptions {
+		if k == "log_line_format" {
+			if v == "json" {
+				logLineFmt = v
+			}
+		}
+	}
+
 	return &DateKVParser{
 		App:           app,
 		AppVer:        appVer,
@@ -35,6 +48,7 @@ func NewDateKVParser(app, appVer, filename, hostname string, fieldMappings map[s
 		Hostname:      hostname,
 		FieldMappings: fieldMappings,
 		Table:         defaultTable,
+		LogLineFormat: logLineFmt,
 	}
 }
 func (p *DateKVParser) Init(defaults, fieldMappings map[string]string, FieldsOrder []string, defaultTable []Attribute) {
@@ -85,12 +99,17 @@ func (p *DateKVParser) Parse(line string) (map[string]string, error) {
 	}
 
 	cleanLogLine := ""
-	for k, v := range matches {
-		cleanLogLine = fmt.Sprintf("%s %s=%s", cleanLogLine, k, v)
+	switch p.LogLineFormat {
+	case "kv":
+		for k, v := range matches {
+			cleanLogLine = fmt.Sprintf("%s %s=%s", cleanLogLine, k, v)
+		}
+	case "json":
+		if json, err := json.Marshal(matches); err == nil {
+			cleanLogLine = string(json)
+		}
 	}
-
 	result["log_line"] = strings.TrimSpace(cleanLogLine)
 
 	return result, nil
-
 }

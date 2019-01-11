@@ -113,7 +113,7 @@ func MonitorFile(ctx context.Context, logfile Logfile) error {
 		parser = NewJSONRawParser(gApp, appVer(), logfile.Filename, gHostname, stream.RecordFormat())
 		break
 	case "date_keyvalue":
-		parser = NewDateKVParser(gApp, appVer(), logfile.Filename, gHostname, logfile.FieldMappings, stream.RecordFormat())
+		parser = NewDateKVParser(gApp, appVer(), logfile.Filename, gHostname, logfile.FieldMappings, stream.RecordFormat(), logfile.ParserOptions)
 		break
 	case "plugin":
 		defaults := map[string]string{
