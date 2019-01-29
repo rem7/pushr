@@ -47,6 +47,7 @@ func (p *VariadicJSONParser) Defaults() map[string]string {
 	d["filename"] = p.Filename
 	d["hostname"] = p.Hostname
 	d["event"] = "" // init to avoid forcing runtime to increase map capacity in Parse
+	d["meta"] = ""
 	d["ingest_datetime"] = time.Now().UTC().Format(ISO_8601)
 	d["log_line"] = ""
 

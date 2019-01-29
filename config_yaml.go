@@ -19,6 +19,11 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+// scan for regexes
+var exp1 = regexp.MustCompile(`line_regex\:\s?\#(?P<logfile>[^\s]+)\s(?P<exp>.*)`)
+var exp2 = regexp.MustCompile(`front_split_regex\:\s?\#(?P<logfile>[^\s]+)\s(?P<exp>.*)`)
+var exp3 = regexp.MustCompile(`kv_regex\:\s?\#(?P<logfile>[^\s]+)\s(?P<exp>.*)`)
+
 func parseYamlConfig(src io.Reader) ConfigFile {
 
 	data, err := ioutil.ReadAll(src)
@@ -32,9 +37,6 @@ func parseYamlConfig(src io.Reader) ConfigFile {
 		log.Fatalf("error: %v", err)
 	}
 
-	// scan for regexes
-	exp1 := regexp.MustCompile(`line_regex\:\s?\#(?P<logfile>[^\s]+)\s(?P<exp>.*)`)
-	exp2 := regexp.MustCompile(`front_split_regex\:\s?\#(?P<logfile>[^\s]+)\s(?P<exp>.*)`)
 	r := bufio.NewReader(bytes.NewReader(data))
 	for {
 
@@ -45,35 +47,40 @@ func parseYamlConfig(src io.Reader) ConfigFile {
 			log.Fatalf(err.Error())
 		}
 
-		matches := exp1.FindSubmatch(line)
-		if len(matches) == 3 {
-			logfileName := string(matches[1])
-			expstr := string(matches[2])
-			exp := regexp.MustCompile(expstr)
-			for n, logfile := range config.Logfiles {
-				if logfile.Name == logfileName {
-					config.Logfiles[n].Regex = exp
-					config.Logfiles[n].LineRegex = expstr
-				}
-			}
-		}
-
-		matches = exp2.FindSubmatch(line)
-		if len(matches) == 3 {
-			logfileName := string(matches[1])
-			expstr := string(matches[2])
-			exp := regexp.MustCompile(expstr)
-			for n, logfile := range config.Logfiles {
-				if logfile.Name == logfileName {
-					config.Logfiles[n].FrontSplitRegex = exp
-					config.Logfiles[n].FrontSplitRegexStr = expstr
-				}
-			}
-		}
+		setConfigLogfileRegex(config, exp1, line)
+		setConfigLogfileRegex(config, exp2, line)
+		setConfigLogfileRegex(config, exp3, line)
 	}
 
 	gApp = config.App
 	setAppVer(config.AppVer)
 
 	return config
+}
+
+func setConfigLogfileRegex(config ConfigFile, regex *regexp.Regexp, line []byte) {
+	matches := regex.FindSubmatch(line)
+	if len(matches) == 3 {
+		logfileName := string(matches[1])
+		expstr := string(matches[2])
+		exp := regexp.MustCompile(expstr)
+		for n, logfile := range config.Logfiles {
+			if logfile.Name == logfileName {
+				switch regex {
+				case exp1:
+					config.Logfiles[n].KvRegex = exp
+					config.Logfiles[n].KvRegexStr = expstr
+					break
+				case exp2:
+					config.Logfiles[n].FrontSplitRegex = exp
+					config.Logfiles[n].FrontSplitRegexStr = expstr
+					break
+				case exp3:
+					config.Logfiles[n].KvRegex = exp
+					config.Logfiles[n].KvRegexStr = expstr
+					break
+				}
+			}
+		}
+	}
 }

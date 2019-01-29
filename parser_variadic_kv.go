@@ -11,6 +11,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"regexp"
 	"strconv"
 	"time"
 
@@ -26,9 +27,10 @@ type VariadicKVParser struct {
 	Table            []Attribute
 	datePrefixLength int
 	cleanKeys        bool
+	keyValueRegex    *regexp.Regexp
 }
 
-func NewVariadicKVParser(app, appVer, filename, hostname string, defaultTable []Attribute, options []string) *VariadicKVParser {
+func NewVariadicKVParser(app, appVer, filename, hostname string, re *regexp.Regexp, defaultTable []Attribute, options []string) *VariadicKVParser {
 	datePrefixLength := 24
 	cleanKeys := false
 	parsedOptions := ParseOptions(options)
@@ -46,6 +48,11 @@ func NewVariadicKVParser(app, appVer, filename, hostname string, defaultTable []
 		}
 	}
 
+	initRE := regexp.MustCompile(`([^=]*)=\"([^\"]*)\"\s?`)
+	if re != nil {
+		initRE = re
+	}
+
 	return &VariadicKVParser{
 		App:              app,
 		AppVer:           appVer,
@@ -53,6 +60,7 @@ func NewVariadicKVParser(app, appVer, filename, hostname string, defaultTable []
 		Hostname:         hostname,
 		datePrefixLength: datePrefixLength,
 		cleanKeys:        cleanKeys,
+		keyValueRegex:    initRE,
 	}
 }
 
@@ -74,6 +82,7 @@ func (p *VariadicKVParser) Defaults() map[string]string {
 	d["filename"] = p.Filename
 	d["hostname"] = p.Hostname
 	d["event"] = "" // init to avoid forcing runtime to increase map capacity in Parse
+	d["meta"] = ""
 	d["ingest_datetime"] = time.Now().UTC().Format(ISO_8601)
 
 	return d
@@ -86,15 +95,20 @@ func (p *VariadicKVParser) Parse(line string) (map[string]string, error) {
 	matches := make(map[string]string)
 	result := p.Defaults()
 
-	vals := keyValueRegex.FindAllStringSubmatch(line[p.datePrefixLength:], -1)
+	vals := p.keyValueRegex.FindAllStringSubmatch(line[p.datePrefixLength:], -1)
 	if p.cleanKeys {
 		for _, item := range vals {
-			matches[strcase.ToLowerCamel(item[1])] = item[2]
+			item[1] = strcase.ToLowerCamel(item[1])
 		}
 	}
 	for _, item := range vals {
-		matches[item[1]] = item[2]
+		for i := 2; i < len(item); i++ {
+			if !isNull(item[i]) {
+				matches[item[1]] = item[i]
+			}
+		}
 	}
+
 	parsedJson, err := json.Marshal(matches)
 	if err == nil {
 		result["event"] = string(parsedJson)

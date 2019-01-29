@@ -17,8 +17,6 @@ import (
 	"time"
 )
 
-var keyValueRegex = regexp.MustCompile(`([^=]*)=\"([^\"]*)\"\s?`)
-
 type DateKVParser struct {
 	App           string
 	AppVer        string
@@ -27,9 +25,10 @@ type DateKVParser struct {
 	FieldMappings map[string]string
 	Table         []Attribute
 	LogLineFormat string
+	keyValueRegex *regexp.Regexp
 }
 
-func NewDateKVParser(app, appVer, filename, hostname string, fieldMappings map[string]string, defaultTable []Attribute, options []string) *DateKVParser {
+func NewDateKVParser(app, appVer, filename, hostname string, fieldMappings map[string]string, re *regexp.Regexp, defaultTable []Attribute, options []string) *DateKVParser {
 
 	logLineFmt := "kv"
 	parsedOptions := ParseOptions(options)
@@ -41,6 +40,11 @@ func NewDateKVParser(app, appVer, filename, hostname string, fieldMappings map[s
 		}
 	}
 
+	initRE := regexp.MustCompile(`([^=]*)=\"([^\"]*)\"\s?`)
+	if re != nil {
+		initRE = re
+	}
+
 	return &DateKVParser{
 		App:           app,
 		AppVer:        appVer,
@@ -49,6 +53,7 @@ func NewDateKVParser(app, appVer, filename, hostname string, fieldMappings map[s
 		FieldMappings: fieldMappings,
 		Table:         defaultTable,
 		LogLineFormat: logLineFmt,
+		keyValueRegex: initRE,
 	}
 }
 func (p *DateKVParser) Init(defaults, fieldMappings map[string]string, FieldsOrder []string, defaultTable []Attribute) {
@@ -82,9 +87,15 @@ func (p *DateKVParser) Parse(line string) (map[string]string, error) {
 		return nil, errors.New("failed to parse")
 	}
 
-	vals := keyValueRegex.FindAllStringSubmatch(line[24:], -1)
+	vals := p.keyValueRegex.FindAllStringSubmatch(line[24:], -1)
+
 	for _, item := range vals {
-		matches[item[1]] = item[2]
+		// loop through values for a non-null value bucket
+		for i := 2; i < len(item); i++ {
+			if !isNull(item[i]) {
+				matches[item[1]] = item[i]
+			}
+		}
 	}
 
 	for k, v := range p.FieldMappings {
@@ -110,6 +121,5 @@ func (p *DateKVParser) Parse(line string) (map[string]string, error) {
 		}
 	}
 	result["log_line"] = strings.TrimSpace(cleanLogLine)
-
 	return result, nil
 }

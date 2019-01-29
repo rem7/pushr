@@ -113,10 +113,10 @@ func MonitorFile(ctx context.Context, logfile Logfile) error {
 		parser = NewJSONRawParser(gApp, appVer(), logfile.Filename, gHostname, stream.RecordFormat())
 		break
 	case "date_keyvalue":
-		parser = NewDateKVParser(gApp, appVer(), logfile.Filename, gHostname, logfile.FieldMappings, stream.RecordFormat(), logfile.ParserOptions)
+		parser = NewDateKVParser(gApp, appVer(), logfile.Filename, gHostname, logfile.FieldMappings, logfile.KvRegex, stream.RecordFormat(), logfile.ParserOptions)
 		break
 	case "variadic_kv":
-		parser = NewVariadicKVParser(gApp, appVer(), logfile.Filename, gHostname, stream.RecordFormat(), logfile.ParserOptions)
+		parser = NewVariadicKVParser(gApp, appVer(), logfile.Filename, gHostname, logfile.KvRegex, stream.RecordFormat(), logfile.ParserOptions)
 		break
 	case "variadic_json":
 		parser = NewVariadicJSONParser(gApp, appVer(), logfile.Filename, gHostname, stream.RecordFormat(), logfile.ParserOptions)
