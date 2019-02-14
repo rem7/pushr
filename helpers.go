@@ -368,3 +368,10 @@ func omitEmpty(s []string) []string {
 	}
 	return res
 }
+
+func truncateString(str string, chars int) string {
+	if len(str) < chars {
+		return str
+	}
+	return str[0:chars]
+}
