@@ -28,7 +28,7 @@ import (
 
 const (
 	ISO_8601          string = "2006-01-02T15:04:05.999Z"
-	MAX_BUFFERED_LINE int    = 65535 // redshift VARCHAR(MAX)
+	MAX_BUFFERED_LINE int    = 65535 // redshift VARCHAR(MAX) - TODO(gp): should this be changed to 16777216 (snowflake)?
 )
 
 var (
@@ -113,7 +113,13 @@ func MonitorFile(ctx context.Context, logfile Logfile) error {
 		parser = NewJSONRawParser(gApp, appVer(), logfile.Filename, gHostname, stream.RecordFormat())
 		break
 	case "date_keyvalue":
-		parser = NewDateKVParser(gApp, appVer(), logfile.Filename, gHostname, logfile.FieldMappings, stream.RecordFormat(), logfile.ParserOptions)
+		parser = NewDateKVParser(gApp, appVer(), logfile.Filename, gHostname, logfile.FieldMappings, logfile.KvRegex, stream.RecordFormat(), logfile.ParserOptions)
+		break
+	case "variadic_kv":
+		parser = NewVariadicKVParser(gApp, appVer(), logfile.Filename, gHostname, logfile.KvRegex, stream.RecordFormat(), logfile.ParserOptions)
+		break
+	case "variadic_json":
+		parser = NewVariadicJSONParser(gApp, appVer(), logfile.Filename, gHostname, stream.RecordFormat(), logfile.ParserOptions)
 		break
 	case "plugin":
 		defaults := map[string]string{
