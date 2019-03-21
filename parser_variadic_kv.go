@@ -50,6 +50,7 @@ func NewVariadicKVParser(app, appVer, filename, hostname string, re *regexp.Rege
 
 	initRE := regexp.MustCompile(`([^=]*)=\"([^\"]*)\"\s?`)
 	if re != nil {
+		log.Warnf("Using custom regex: " + re.String())
 		initRE = re
 	}
 
@@ -102,9 +103,19 @@ func (p *VariadicKVParser) Parse(line string) (map[string]string, error) {
 		}
 	}
 	for _, item := range vals {
-		for i := 2; i < len(item); i++ {
-			if !isNull(item[i]) {
-				matches[item[1]] = item[i]
+		switch len(item) {
+		case 0:
+			continue
+		case 3:
+			matches[item[1]] = item[2]
+		default:
+			for i := 2; i < len(item); i++ {
+				if !isNull(item[i]) {
+					matches[item[1]] = item[i]
+				}
+			}
+			if _, ok := matches[item[1]]; !ok {
+				matches[item[1]] = ""
 			}
 		}
 	}
