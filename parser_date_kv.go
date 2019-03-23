@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	log "github.com/Sirupsen/logrus"
 	"regexp"
 	"strings"
 	"time"
@@ -42,6 +43,7 @@ func NewDateKVParser(app, appVer, filename, hostname string, fieldMappings map[s
 
 	initRE := regexp.MustCompile(`([^=]*)=\"([^\"]*)\"\s?`)
 	if re != nil {
+		log.Warnf("Using custom regex: %s", re.String())
 		initRE = re
 	}
 
@@ -90,10 +92,19 @@ func (p *DateKVParser) Parse(line string) (map[string]string, error) {
 	vals := p.keyValueRegex.FindAllStringSubmatch(line[24:], -1)
 
 	for _, item := range vals {
-		// loop through values for a non-null value bucket
-		for i := 2; i < len(item); i++ {
-			if !isNull(item[i]) {
-				matches[item[1]] = item[i]
+		switch len(item) {
+		case 3:
+			matches[item[1]] = item[2]
+		case 0:
+			continue
+		default:
+			for i := 2; i < len(item); i++ {
+				if item[i] != "" && item[i] != " " {
+					matches[item[1]] = item[i]
+				}
+			}
+			if _, ok := matches[item[1]]; !ok {
+				matches[item[1]] = ""
 			}
 		}
 	}
