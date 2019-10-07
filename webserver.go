@@ -15,11 +15,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	log "github.com/Sirupsen/logrus"
-	"github.com/gorilla/websocket"
 	"io/ioutil"
 	"net/http"
 	"strings"
+
+	"github.com/gorilla/websocket"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
@@ -27,8 +28,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/gorilla/mux"
-	"pushr/middleware"
-	"pushr/tail"
+	"github.com/rem7/pushr/v3/middleware"
+	"github.com/rem7/tail/v2"
 	"github.com/urfave/negroni"
 )
 
@@ -329,12 +330,11 @@ func subscribeRaw(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	filename := req.URL.Query().Get("filename")
-	t := tail.NewTail(filename)
-	t.SeekToEnd = true
-	t.RetryFileOpen = true
-	t.Context = req.Context()
-	t.Follow = true
-	t.Start()
+	t := tail.NewTailer(req.Context(), filename,
+		tail.Follow(true),
+		tail.RetryFileOpen(true),
+		tail.SetSeekToEnd(true))
+
 	for {
 
 		line, ok := <-t.LineChan

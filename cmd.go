@@ -10,14 +10,12 @@ package main
 
 import (
 	"context"
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
-
-	// "github.com/pkg/profile"
-	"github.com/codegangsta/cli"
+	"github.com/urfave/cli"
 )
 
 func main() {

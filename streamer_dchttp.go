@@ -13,7 +13,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"hash"
 	"math"
 	"net/http"

@@ -11,7 +11,7 @@ package main
 import (
 	"context"
 	"encoding/csv"
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 	"io"
 	"os"
 	"os/signal"

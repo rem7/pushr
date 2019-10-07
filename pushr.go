@@ -15,15 +15,16 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"pushr/logger"
-	"pushr/tail"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
+	"github.com/rem7/pushr/v3/logger"
+	"github.com/rem7/tail/v2"
+
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -135,12 +136,19 @@ func MonitorFile(ctx context.Context, logfile Logfile) error {
 	}
 
 	// delim := regexp.MustCompile(`\d{4}/\d{2}/\d{2}\s\d{2}\:\d{2}\:\d{2}\.\d{3}\s`)
-	var t *tail.Tail
+	frontSplit := false
+	var frontSplitRegex *regexp.Regexp
 	if logfile.FrontSplitRegexStr != "" {
-		t = tail.NewTailWithCtx(ctx, logfile.Filename, gFollow, logfile.RetryFileOpen, logfile.FrontSplitRegex, true, logfile.SkipToEnd)
-	} else {
-		t = tail.NewTailWithCtx(ctx, logfile.Filename, gFollow, logfile.RetryFileOpen, nil, false, logfile.SkipToEnd)
+		frontSplit = true
+		frontSplitRegex = logfile.FrontSplitRegex
 	}
+
+	t := tail.NewTailer(ctx, logfile.Filename,
+		tail.Follow(gFollow),
+		tail.RetryFileOpen(logfile.RetryFileOpen),
+		tail.SetDelimeter(frontSplitRegex),
+		tail.SplitAtLineStart(frontSplit),
+		tail.SetSeekToEnd(logfile.SkipToEnd))
 
 	stringBuffer := bytes.NewBufferString("")
 	flushTimer := time.NewTicker(time.Second * 30)
